@@ -136,6 +136,70 @@ test('missing mode defaults to rally', () => {
   assert.strictEqual(p.style, 'rally');
 });
 
+/* ---- getTournamentScoringProfile: universal scoring (all modes) ---- */
+console.log('\ngetTournamentScoringProfile — universal scoring (all modes)');
+test('normal americano with score_kind games returns games profile', () => {
+  const p = getTournamentScoringProfile({ mode: 'normal', score_kind: 'games', best_of_games: 5 });
+  assert.strictEqual(p.style, 'games');
+  assert.strictEqual(p.bestOf, 5);
+  assert.strictEqual(p.gamesTarget, 3);
+  assert.strictEqual(p.mirrorOpp, false);
+});
+test('mix americano with score_kind games returns games profile', () => {
+  const p = getTournamentScoringProfile({ mode: 'mix', score_kind: 'games', best_of_games: 3 });
+  assert.strictEqual(p.style, 'games');
+  assert.strictEqual(p.bestOf, 3);
+  assert.strictEqual(p.gamesTarget, 2);
+});
+test('fixed americano with score_kind games returns games profile', () => {
+  const p = getTournamentScoringProfile({ mode: 'fixed', score_kind: 'games', best_of_games: 7 });
+  assert.strictEqual(p.style, 'games');
+  assert.strictEqual(p.bestOf, 7);
+  assert.strictEqual(p.gamesTarget, 4);
+});
+test('balanced americano with score_kind games returns games profile', () => {
+  const p = getTournamentScoringProfile({ mode: 'balanced', score_kind: 'games', best_of_games: 4 });
+  assert.strictEqual(p.style, 'games');
+  assert.strictEqual(p.bestOf, 4);
+});
+test('normal americano with score_kind rally returns rally profile with points_to_win', () => {
+  const p = getTournamentScoringProfile({ mode: 'normal', score_kind: 'rally', points_to_win: 32 });
+  assert.strictEqual(p.style, 'rally');
+  assert.strictEqual(p.rallyCap, 32);
+  assert.strictEqual(p.mirrorOpp, true);
+});
+test('normal americano without score_kind still defaults to rally (existing tournaments unaffected)', () => {
+  const p = getTournamentScoringProfile({ mode: 'normal', points_to_win: 21 });
+  assert.strictEqual(p.style, 'rally');
+  assert.strictEqual(p.rallyCap, 21);
+});
+test('mexicano still honors legacy mex_score_kind when generic score_kind is absent', () => {
+  const p = getTournamentScoringProfile({ mode: 'mexicano', mex_score_kind: 'games', mex_best_of_games: 5 });
+  assert.strictEqual(p.style, 'games');
+  assert.strictEqual(p.bestOf, 5);
+});
+test('generic score_kind takes precedence over legacy mex_score_kind when both present', () => {
+  const p = getTournamentScoringProfile({
+    mode: 'mexicano',
+    score_kind: 'rally',
+    points_to_win: 24,
+    mex_score_kind: 'games',
+    mex_best_of_games: 5,
+  });
+  assert.strictEqual(p.style, 'rally');
+  assert.strictEqual(p.rallyCap, 24);
+});
+test('legacy mex_score_kind is ignored for non-Mexicano modes (no accidental games mode)', () => {
+  const p = getTournamentScoringProfile({ mode: 'normal', mex_score_kind: 'games', mex_best_of_games: 5 });
+  assert.strictEqual(p.style, 'rally');
+});
+test('best_of_games is clamped into the 3–7 range for any mode', () => {
+  const low = getTournamentScoringProfile({ mode: 'mix', score_kind: 'games', best_of_games: 1 });
+  assert.strictEqual(low.bestOf, 3);
+  const high = getTournamentScoringProfile({ mode: 'fixedmex', score_kind: 'games', best_of_games: 99 });
+  assert.strictEqual(high.bestOf, 7);
+});
+
 /* ---- formatLeaderboardDiff ---- */
 console.log('\nformatLeaderboardDiff');
 test('positive diff has + prefix', () => assert.strictEqual(formatLeaderboardDiff(5), '+5'));

@@ -153,19 +153,26 @@
   };
 
   /* ---------- scoring profile ---------- */
+  /**
+   * Rally (mirror) vs best-of games, available for every tournament mode.
+   *
+   * Reads the generic `score_kind` / `best_of_games` fields first. Falls back to
+   * the legacy Mexicano-only `mex_score_kind` / `mex_best_of_games` fields (only
+   * consulted for Mexicano-family modes, matching the old behavior) so older
+   * saved tournaments and share links keep working unchanged. Anything else —
+   * including tournaments with no scoring-kind field at all — defaults to rally,
+   * so existing data can never silently become games mode.
+   */
   const getTournamentScoringProfile = (t) => {
     const mode = t?.mode || 'normal';
-    if (!isMexicanoFamilyMode(mode)) {
-      return {
-        style: 'rally',
-        rallyCap: Number(t?.points_to_win) || 21,
-        gamesTarget: null,
-        bestOf: null,
-        mirrorOpp: true
-      };
-    }
-    if (t?.mex_score_kind === 'games') {
-      const bestOf = Math.min(7, Math.max(3, Number(t?.mex_best_of_games) || 3));
+    const legacyMexKind = isMexicanoFamilyMode(mode) ? t?.mex_score_kind : null;
+    const kind = t?.score_kind || legacyMexKind || 'rally';
+
+    if (kind === 'games') {
+      const bestOf = Math.min(
+        7,
+        Math.max(3, Number(t?.best_of_games ?? t?.mex_best_of_games) || 3)
+      );
       return {
         style: 'games',
         rallyCap: null,

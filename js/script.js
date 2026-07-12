@@ -972,21 +972,24 @@
   };
 
   /**
-   * Rally (mirror) vs best-of games. Only Mexicano-family modes use `mex_score_kind` / `mex_best_of_games`.
+   * Rally (mirror) vs best-of games, available for every tournament mode.
+   *
+   * Reads the generic `score_kind` / `best_of_games` fields first. Falls back to
+   * the legacy Mexicano-only `mex_score_kind` / `mex_best_of_games` fields (only
+   * consulted for Mexicano-family modes, matching the old behavior) so older
+   * saved tournaments and share links keep working unchanged. Anything else —
+   * including tournaments with no scoring-kind field at all — defaults to rally.
    */
   const getTournamentScoringProfile = (t) => {
     const mode = t?.mode || 'normal';
-    if (!isMexicanoFamilyMode(mode)) {
-      return {
-        style: 'rally',
-        rallyCap: Number(t?.points_to_win) || 21,
-        gamesTarget: null,
-        bestOf: null,
-        mirrorOpp: true
-      };
-    }
-    if (t?.mex_score_kind === 'games') {
-      const bestOf = Math.min(7, Math.max(3, Number(t?.mex_best_of_games) || 3));
+    const legacyMexKind = isMexicanoFamilyMode(mode) ? t?.mex_score_kind : null;
+    const kind = t?.score_kind || legacyMexKind || 'rally';
+
+    if (kind === 'games') {
+      const bestOf = Math.min(
+        7,
+        Math.max(3, Number(t?.best_of_games ?? t?.mex_best_of_games) || 3)
+      );
       return {
         style: 'games',
         rallyCap: null,
@@ -2252,9 +2255,7 @@
     else if (mode === 'balanced') state.newTournament.mode = 'balanced';
     else state.newTournament.mode = 'normal';
     state.playerGenderDraft = 'M';
-    if (isMexicanoFamilyMode(state.newTournament.mode)) {
-      state.newTournament.mexScoreKind = state.newTournament.mexScoreKind || 'rally';
-    }
+    state.newTournament.scoreKind = state.newTournament.scoreKind || 'rally';
     updateGenderUI();
     navigateTo('new-title');
   };
@@ -2313,10 +2314,10 @@
       /** 'number' = Court 1/2/3, 'letter' = Court A/B/C */
       courtStyle: 'number',
       points: 0,
-      /** Mexicano-family only: 'rally' | 'games' */
-      mexScoreKind: 'rally',
-      /** Best-of max games when mexScoreKind === 'games' (3–7); null until user picks. */
-      mexBestOf: null,
+      /** Every mode: 'rally' (target points) | 'games' (best-of, tennis-style current game). */
+      scoreKind: 'rally',
+      /** Best-of max games when scoreKind === 'games' (3–7); null until user picks. */
+      bestOfGames: null,
       players: []
     },
 
@@ -3093,14 +3094,14 @@
   /** Applied via styles.css — avoids Tailwind CDN missing dynamic utilities. */
   const CHIP_SELECTED = 'padelio-chip-selected';
 
-  const isMexBestOfChosen = () => {
-    const n = Number(state.newTournament.mexBestOf);
+  const isBestOfGamesChosen = () => {
+    const n = Number(state.newTournament.bestOfGames);
     return n >= 3 && n <= 7;
   };
 
   const canProceedFromPointsStep = () => {
-    if (isMexicanoFamilyMode(state.newTournament.mode) && state.newTournament.mexScoreKind === 'games') {
-      return isMexBestOfChosen();
+    if (state.newTournament.scoreKind === 'games') {
+      return isBestOfGamesChosen();
     }
     return state.newTournament.points > 0;
   };
@@ -3112,8 +3113,8 @@
       courts: 0,
       courtStyle: 'number',
       points: 0,
-      mexScoreKind: 'rally',
-      mexBestOf: null,
+      scoreKind: 'rally',
+      bestOfGames: null,
       players: []
     };
     state.playerGenderDraft = 'M';
@@ -3227,38 +3228,31 @@
   };
 
   const syncNewPointsPage = () => {
-    const std = $('new-points-standard');
-    const mex = $('new-points-mex');
     const tit = $('points-page-title');
     const sub = $('points-page-sub');
-    const rallyPanel = $('mex-panel-rally');
-    const gamesPanel = $('mex-panel-games');
+    const rallyPanel = $('points-panel-rally');
+    const gamesPanel = $('points-panel-games');
 
-    const isMex = isMexicanoFamilyMode(state.newTournament.mode);
-    const kind = state.newTournament.mexScoreKind === 'games' ? 'games' : 'rally';
+    const kind = state.newTournament.scoreKind === 'games' ? 'games' : 'rally';
 
-    if (std) std.classList.toggle('hidden', isMex);
-    if (mex) mex.classList.toggle('hidden', !isMex);
-
-    if (tit) tit.textContent = isMex ? 'Match scoring' : 'Points to Win';
+    if (tit) tit.textContent = 'Match scoring';
     if (sub) {
-      sub.textContent = isMex
-        ? 'Rally to a target, or best-of games (tennis-style: 0–40 per game; games won add to leaderboard).'
-        : 'Select points per match';
+      sub.textContent =
+        'Rally to a target, or best-of games (tennis-style: 0–40 per game; games won add to leaderboard).';
     }
 
-    if (rallyPanel) rallyPanel.classList.toggle('hidden', !isMex || kind !== 'rally');
-    if (gamesPanel) gamesPanel.classList.toggle('hidden', !isMex || kind !== 'games');
+    if (rallyPanel) rallyPanel.classList.toggle('hidden', kind !== 'rally');
+    if (gamesPanel) gamesPanel.classList.toggle('hidden', kind !== 'games');
 
     $$('.mex-kind-btn').forEach((b) => {
-      const k = b.dataset.mexKind;
+      const k = b.dataset.scoreKind;
       const on = k === 'games' ? kind === 'games' : kind === 'rally';
       b.classList.toggle(CHIP_SELECTED, on);
     });
 
     $$('.mex-bo-btn').forEach((b) => {
       const bo = Number(b.dataset.bo);
-      const on = kind === 'games' && isMexBestOfChosen() && bo === Number(state.newTournament.mexBestOf);
+      const on = kind === 'games' && isBestOfGamesChosen() && bo === Number(state.newTournament.bestOfGames);
       b.classList.toggle(CHIP_SELECTED, on);
     });
 
@@ -3275,10 +3269,10 @@
     updateButtonStates();
   };
 
-  const selectMexScoreKind = (kind) => {
+  const selectScoreKind = (kind) => {
     const next = kind === 'games' ? 'games' : 'rally';
-    state.newTournament.mexScoreKind = next;
-    state.newTournament.mexBestOf = null;
+    state.newTournament.scoreKind = next;
+    state.newTournament.bestOfGames = null;
     if (next === 'games') {
       state.newTournament.points = 0;
       $$('.points-btn').forEach((b) => b.classList.remove(CHIP_SELECTED));
@@ -3287,8 +3281,8 @@
     updateButtonStates();
   };
 
-  const selectMexBestOf = (n) => {
-    state.newTournament.mexBestOf = Math.min(7, Math.max(3, Number(n)));
+  const selectBestOfGames = (n) => {
+    state.newTournament.bestOfGames = Math.min(7, Math.max(3, Number(n)));
     syncNewPointsPage();
     updateButtonStates();
   };
@@ -3746,20 +3740,14 @@
 
       const mexFam = isMexicanoFamilyMode(state.newTournament.mode);
 
+      // Generic scoring choice, available for every mode.
+      const score_kind = state.newTournament.scoreKind === 'games' ? 'games' : 'rally';
       let points_to_win = state.newTournament.points;
-      let mex_score_kind = null;
-      let mex_best_of_games = null;
+      let best_of_games = null;
 
-      if (mexFam) {
-        if (state.newTournament.mexScoreKind === 'games') {
-          mex_score_kind = 'games';
-          mex_best_of_games = Math.min(7, Math.max(3, Number(state.newTournament.mexBestOf)));
-          points_to_win = gamesNeededToWinMatch(mex_best_of_games);
-        } else {
-          mex_score_kind = 'rally';
-          mex_best_of_games = null;
-          points_to_win = state.newTournament.points;
-        }
+      if (score_kind === 'games') {
+        best_of_games = Math.min(7, Math.max(3, Number(state.newTournament.bestOfGames)));
+        points_to_win = gamesNeededToWinMatch(best_of_games);
       }
 
       const tournament = {
@@ -3769,13 +3757,16 @@
         courts: state.newTournament.courts,
         court_style: state.newTournament.courtStyle || 'number',
         points_to_win,
+        score_kind,
+        best_of_games,
         players: JSON.stringify(normalizePlayers(state.newTournament.players)),
         rounds: JSON.stringify([]),
         current_round: 1,
         created_at: new Date().toISOString(),
-        ...(mexFam && mex_score_kind
-          ? { mex_score_kind, mex_best_of_games }
-          : {}),
+        // Legacy Mexicano-only mirror fields — kept so any older app build or
+        // stored share link still reading `mex_score_kind` / `mex_best_of_games`
+        // continues to work unchanged.
+        ...(mexFam ? { mex_score_kind: score_kind, mex_best_of_games: best_of_games } : {}),
         ...(socialScheduleJson ? { social_schedule_json: socialScheduleJson } : {}),
         ...(mixScheduleJson ? { mix_schedule_json: mixScheduleJson } : {})
       };
@@ -5940,12 +5931,10 @@
       R
     };
     if (hasGender) payload.G = playersArr.map((p) => p.gender);
-    if (isMexicanoFamilyMode(t.mode || 'normal')) {
-      payload.mk = t.mex_score_kind === 'games' ? 'g' : 'r';
-      if (t.mex_score_kind === 'games') {
-        payload.mb = Math.min(7, Math.max(3, Number(t.mex_best_of_games) || 3));
-      }
-    }
+    // Scoring kind is generic (every mode), not just Mexicano-family.
+    const shareProf = getTournamentScoringProfile(t);
+    payload.mk = shareProf.style === 'games' ? 'g' : 'r';
+    if (shareProf.style === 'games') payload.mb = shareProf.bestOf;
     return payload;
   };
 
@@ -5989,13 +5978,19 @@
     });
 
     const mode = decodeShareMode(w.m);
-    const mexExtra =
-      isMexicanoFamilyMode(mode) && (w.mk === 'g' || w.mk === 'r')
+    // Scoring kind is generic (every mode). Legacy `mex_*` mirror fields are
+    // kept only for Mexicano-family modes so older app code reading those
+    // specific fields from a stored/cached payload still works.
+    const scoreExtra =
+      w.mk === 'g' || w.mk === 'r'
         ? {
-            mex_score_kind: w.mk === 'g' ? 'games' : 'rally',
-            mex_best_of_games:
-              w.mk === 'g' ? Math.min(7, Math.max(3, Number(w.mb) || 3)) : null
+            score_kind: w.mk === 'g' ? 'games' : 'rally',
+            best_of_games: w.mk === 'g' ? Math.min(7, Math.max(3, Number(w.mb) || 3)) : null
           }
+        : {};
+    const mexExtra =
+      isMexicanoFamilyMode(mode) && scoreExtra.score_kind
+        ? { mex_score_kind: scoreExtra.score_kind, mex_best_of_games: scoreExtra.best_of_games }
         : {};
 
     return {
@@ -6007,6 +6002,7 @@
       current_round: w.cr,
       players: JSON.stringify(playersExpanded),
       rounds: JSON.stringify(roundsExpanded),
+      ...scoreExtra,
       ...mexExtra
     };
   };
@@ -6061,6 +6057,9 @@
   };
 
   const buildShareUrlFromTournament = async (t) => {
+    // Scoring kind is generic (every mode). Legacy `mex_*` mirror fields are
+    // kept only for Mexicano-family modes for backward compatibility.
+    const shareProf = getTournamentScoringProfile(t);
     const canonical = {
       v: SHARE_PAYLOAD_VERSION,
       title: t.title || 'Tournament',
@@ -6069,11 +6068,13 @@
       points_to_win: t.points_to_win,
       players: t.players,
       rounds: t.rounds,
-      current_round: t.current_round
+      current_round: t.current_round,
+      score_kind: shareProf.style === 'games' ? 'games' : 'rally',
+      best_of_games: shareProf.style === 'games' ? shareProf.bestOf : null
     };
-    if (isMexicanoFamilyMode(t.mode || 'normal') && t.mex_score_kind) {
-      canonical.mex_score_kind = t.mex_score_kind;
-      canonical.mex_best_of_games = t.mex_best_of_games ?? null;
+    if (isMexicanoFamilyMode(t.mode || 'normal')) {
+      canonical.mex_score_kind = canonical.score_kind;
+      canonical.mex_best_of_games = canonical.best_of_games;
     }
     const compact = buildCompactSharePayload(t);
 
@@ -7616,8 +7617,8 @@
   window.selectCourtStyle = selectCourtStyle;
   window.goToPoints = goToPoints;
   window.selectPoints = selectPoints;
-  window.selectMexScoreKind = selectMexScoreKind;
-  window.selectMexBestOf = selectMexBestOf;
+  window.selectScoreKind = selectScoreKind;
+  window.selectBestOfGames = selectBestOfGames;
   window.goToPlayers = goToPlayers;
 
   window.selectMode = selectMode;

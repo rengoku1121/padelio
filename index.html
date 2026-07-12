@@ -851,31 +851,22 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
         </svg> Back </button>
       <div class="flex-1 flex flex-col">
-        <h2 id="points-page-title" class="text-2xl font-extrabold mb-2">Points to Win</h2>
-        <p id="points-page-sub" class="text-slate-600 dark:text-slate-300 text-sm mb-6">Select points per match</p>
+        <h2 id="points-page-title" class="text-2xl font-extrabold mb-2">Match scoring</h2>
+        <p id="points-page-sub" class="text-slate-600 dark:text-slate-300 text-sm mb-6">Rally to a target, or best-of games (tennis-style: 0–40 per game; games won add to leaderboard).</p>
 
-        <div id="new-points-standard" class="mb-6">
-          <div class="grid grid-cols-2 gap-3">
-            <button type="button" onclick="selectPoints(16)" class="points-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-5 text-xl font-extrabold transition-all shadow-cozy-sm backdrop-blur-sm" data-points="16">16</button>
-            <button type="button" onclick="selectPoints(21)" class="points-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-5 text-xl font-extrabold transition-all shadow-cozy-sm backdrop-blur-sm" data-points="21">21</button>
-            <button type="button" onclick="selectPoints(24)" class="points-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-5 text-xl font-extrabold transition-all shadow-cozy-sm backdrop-blur-sm" data-points="24">24</button>
-            <button type="button" onclick="selectPoints(32)" class="points-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-5 text-xl font-extrabold transition-all shadow-cozy-sm backdrop-blur-sm" data-points="32">32</button>
-          </div>
-        </div>
-
-        <div id="new-points-mex" class="hidden mb-6 space-y-4">
+        <div class="mb-6 space-y-4">
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" onclick="selectMexScoreKind('rally')" data-mex-kind="rally"
+            <button type="button" onclick="selectScoreKind('rally')" data-score-kind="rally"
               class="mex-kind-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold transition-all shadow-cozy-sm">
               Rally (target points)
             </button>
-            <button type="button" onclick="selectMexScoreKind('games')" data-mex-kind="games"
+            <button type="button" onclick="selectScoreKind('games')" data-score-kind="games"
               class="mex-kind-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold transition-all shadow-cozy-sm">
               Best-of games
             </button>
           </div>
 
-          <div id="mex-panel-rally" class="hidden">
+          <div id="points-panel-rally" class="hidden">
             <p class="text-slate-600 dark:text-slate-400 text-xs mb-3">Rally to this total per team (inputs mirror while typing).</p>
             <div class="grid grid-cols-2 gap-3">
               <button type="button" onclick="selectPoints(16)" class="points-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-5 text-xl font-extrabold transition-all shadow-cozy-sm backdrop-blur-sm" data-points="16">16</button>
@@ -885,14 +876,14 @@
             </div>
           </div>
 
-          <div id="mex-panel-games" class="hidden">
+          <div id="points-panel-games" class="hidden">
             <p class="text-slate-600 dark:text-slate-400 text-xs mb-3">Pick a series length below (e.g. best of 5 ? first to 3 games). Games won add to leaderboard points.</p>
             <div class="grid grid-cols-3 gap-2">
-              <button type="button" onclick="selectMexBestOf(3)" data-bo="3" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 3</button>
-              <button type="button" onclick="selectMexBestOf(4)" data-bo="4" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 4</button>
-              <button type="button" onclick="selectMexBestOf(5)" data-bo="5" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 5</button>
-              <button type="button" onclick="selectMexBestOf(6)" data-bo="6" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 6</button>
-              <button type="button" onclick="selectMexBestOf(7)" data-bo="7" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold col-span-2">Best of 7</button>
+              <button type="button" onclick="selectBestOfGames(3)" data-bo="3" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 3</button>
+              <button type="button" onclick="selectBestOfGames(4)" data-bo="4" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 4</button>
+              <button type="button" onclick="selectBestOfGames(5)" data-bo="5" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 5</button>
+              <button type="button" onclick="selectBestOfGames(6)" data-bo="6" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold">Best of 6</button>
+              <button type="button" onclick="selectBestOfGames(7)" data-bo="7" class="mex-bo-btn bg-slate-900/8 dark:bg-white/5 border-2 border-slate-200/90 dark:border-white/15 hover:border-lime-400 rounded-2xl py-4 text-sm font-extrabold col-span-2">Best of 7</button>
             </div>
           </div>
         </div>
