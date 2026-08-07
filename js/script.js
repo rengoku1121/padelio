@@ -11,33 +11,15 @@
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   /* ---------- small utils ---------- */
-  let adsInitialized = false;
-
   function updateAdVisibility(page) {
     const adWrap = document.getElementById('content-ad-wrap');
-    const contentPages = ['home', 'about', 'privacy', 'terms'];
-
     if (!adWrap) return;
 
-    const shouldShowAd = contentPages.includes(page);
-
-    if (!shouldShowAd) {
-      adWrap.classList.add('hidden');
-      return;
-    }
-
-    adWrap.classList.remove('hidden');
-
-    if (!adsInitialized && window.adsbygoogle) {
-      try {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
-        adsInitialized = true;
-      } catch (err) {
-        console.error('AdSense init error:', err);
-      }
-    }
+    const contentPages = ['home', 'about', 'privacy', 'terms'];
+    adWrap.classList.toggle('hidden', !contentPages.includes(page));
   }
   
+
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
   const safeJsonParse = (val, fallback) => {
     if (val == null) return fallback;

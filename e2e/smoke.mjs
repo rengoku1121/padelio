@@ -19,9 +19,6 @@ const allowConsoleError = (text) => {
   return (
     /tailwindcss\.com/i.test(t) ||
     /Failed to load resource.*favicon/i.test(t) ||
-    /vignette\.min\.js/i.test(t) ||
-    /n6wxm\.com/i.test(t) ||
-    /adsbygoogle/i.test(t) ||
     /googletagmanager/i.test(t) ||
     /Failed to load resource.*403/i.test(t) ||
     /ResizeObserver loop/i.test(t)
