@@ -562,14 +562,27 @@
             const quad = [active[i], active[j], active[k], active[l]];
             const splits = splitQuad(quad);
             let bestSc = Infinity;
-            let bestSplit = null;
+            const splitWinners = [];
+            const reshuffle = !!(opts.avoidPartners && opts.avoidPartners.size);
             for (const sp of splits) {
-              const sc = scoreMatchPair(sp.teamA, sp.teamB, history, lastPartnerSet);
+              let sc = scoreMatchPair(sp.teamA, sp.teamB, history, lastPartnerSet);
+              if (reshuffle) {
+                const kA = pairKey(sp.teamA[0], sp.teamA[1]);
+                const kB = pairKey(sp.teamB[0], sp.teamB[1]);
+                if (opts.avoidPartners.has(kA)) sc += 1000000;
+                if (opts.avoidPartners.has(kB)) sc += 1000000;
+              }
               if (sc < bestSc) {
                 bestSc = sc;
-                bestSplit = sp;
+                splitWinners.length = 0;
+                splitWinners.push(sp);
+              } else if (sc === bestSc && reshuffle) {
+                splitWinners.push(sp);
               }
             }
+            const bestSplit = splitWinners[
+              reshuffle ? Math.floor(random() * splitWinners.length) : 0
+            ];
             candidates.push({
               indices: [i, j, k, l],
               playerMask: (1 << i) | (1 << j) | (1 << k) | (1 << l),
@@ -1164,7 +1177,7 @@
       capacity.usedCourtsPerRound,
       history,
       lastPartnerSet,
-      { random }
+      { random, avoidPartners: opts.avoidPartners || null }
     );
 
     if (!built || built.matches.length !== capacity.usedCourtsPerRound) {

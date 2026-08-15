@@ -422,6 +422,9 @@
     { team1: [a, d], team2: [b, c] }
   ];
 
+  /** Optional Set of pairKey strings to avoid when regenerating a round. */
+  let reshuffleAvoidPartners = null;
+
   function bestPairingOneCourt(
     fourPlayers,
     stats,
@@ -439,11 +442,12 @@
 
     let bestSplit = null;
     let best = Infinity;
+    const winners = [];
 
     splitsForQuad(a, b, c, d).forEach(({ team1: t1, team2: t2 }) => {
       const pA = { m: t1[0], f: t1[1] };
       const pB = { m: t2[0], f: t2[1] };
-      const sc = scoreCourtMatch(
+      let sc = scoreCourtMatch(
         stats,
         phase,
         pA,
@@ -454,12 +458,24 @@
         relaxPartnerLastRound,
         ignoreLevels
       );
+      if (reshuffleAvoidPartners && reshuffleAvoidPartners.size) {
+        if (reshuffleAvoidPartners.has(pairKey(t1[0], t1[1]))) sc += 1e6;
+        if (reshuffleAvoidPartners.has(pairKey(t2[0], t2[1]))) sc += 1e6;
+      }
       if (sc < best) {
         best = sc;
-        bestSplit = { team1: [...t1], team2: [...t2], total: best };
+        winners.length = 0;
+        winners.push({ team1: [...t1], team2: [...t2], total: sc });
+      } else if (sc === best && reshuffleAvoidPartners && reshuffleAvoidPartners.size) {
+        winners.push({ team1: [...t1], team2: [...t2], total: sc });
       }
     });
-    return bestSplit || null;
+    if (!winners.length) return null;
+    bestSplit =
+      winners.length === 1
+        ? winners[0]
+        : winners[Math.floor(Math.random() * winners.length)];
+    return bestSplit;
   }
 
   /** All ways to split 8 sorted players into two quads sharing first anchor — 35 partitions */
@@ -826,47 +842,54 @@
 
     const phases = phaseListForLevel(useLevels && !opts.ignoreLevels);
 
+    reshuffleAvoidPartners =
+      opts.avoidPartners && opts.avoidPartners.size ? opts.avoidPartners : null;
+
     let lastErr = '';
-    for (let pi = 0; pi < phases.length; pi++) {
-      const phase = phases[pi];
-      const relaxPR = phase.partnerLastRound === true;
-      const ignLev = phase.ignoreLevels === true;
-      phase.multiAttemptsHint = Math.min(
-        240,
-        Math.max(72, roster.length * 12 + cc * 40)
-      );
+    try {
+      for (let pi = 0; pi < phases.length; pi++) {
+        const phase = phases[pi];
+        const relaxPR = phase.partnerLastRound === true;
+        const ignLev = phase.ignoreLevels === true;
+        phase.multiAttemptsHint = Math.min(
+          240,
+          Math.max(72, roster.length * 12 + cc * 40)
+        );
 
-      const cand = tryPlanActive(
-        activeRaw,
-        cc,
-        stats,
-        phase,
-        levelMap,
-        lastRoundPartnerSet,
-        relaxPR,
-        ignLev,
-        lastDatum
-      );
-      const ok =
-        cand &&
-        Array.isArray(cand.matches) &&
-        cand.matches.length === cc &&
-        validateMatches(cand.matches, cc, stats.resolve);
+        const cand = tryPlanActive(
+          activeRaw,
+          cc,
+          stats,
+          phase,
+          levelMap,
+          lastRoundPartnerSet,
+          relaxPR,
+          ignLev,
+          lastDatum
+        );
+        const ok =
+          cand &&
+          Array.isArray(cand.matches) &&
+          cand.matches.length === cc &&
+          validateMatches(cand.matches, cc, stats.resolve);
 
-      if (ok) {
-        if (pi > 0) {
-          console.warn('[PadelioAmericanoPlanner] fairness constraints relaxed', {
-            phaseIndex: pi,
-            phase
-          });
+        if (ok) {
+          if (pi > 0) {
+            console.warn('[PadelioAmericanoPlanner] fairness constraints relaxed', {
+              phaseIndex: pi,
+              phase
+            });
+          }
+          return { matches: cand.matches, phaseIndex: pi };
         }
-        return { matches: cand.matches, phaseIndex: pi };
+
+        lastErr = 'no_feasible_round';
       }
 
-      lastErr = 'no_feasible_round';
+      return { matches: [], error: lastErr };
+    } finally {
+      reshuffleAvoidPartners = null;
     }
-
-    return { matches: [], error: lastErr };
   }
 
   const _exports = {

@@ -1600,6 +1600,55 @@ html.dark .lb-rename-btn--save {
     display: flex;
     flex-direction: column;
     align-items: center;
+    touch-action: pan-y;
+  }
+
+  .host-swipe-hint {
+    width: 100%;
+    max-width: 26rem;
+    user-select: none;
+  }
+
+  .padel-swipe-surface {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .padel-swipe-surface.padel-swipe-from-right {
+    animation: padelSwipeInFromRight 220ms ease-out;
+  }
+
+  .padel-swipe-surface.padel-swipe-from-left {
+    animation: padelSwipeInFromLeft 220ms ease-out;
+  }
+
+  @keyframes padelSwipeInFromRight {
+    from {
+      opacity: 0.35;
+      transform: translateX(18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes padelSwipeInFromLeft {
+    from {
+      opacity: 0.35;
+      transform: translateX(-18px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .padel-swipe-surface.padel-swipe-from-right,
+    .padel-swipe-surface.padel-swipe-from-left {
+      animation: none;
+    }
   }
 
   .host-round-nav {
@@ -1673,6 +1722,7 @@ html.dark .lb-rename-btn--save {
   }
 
   .share-tournament-workspace {
+    touch-action: pan-y;
     overflow: hidden;
   }
 

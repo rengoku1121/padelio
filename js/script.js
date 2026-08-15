@@ -39,23 +39,57 @@
   };
 
   const TOAST_DURATION_MS = 3200;
-  const toast = (message) => {
+  const TOAST_UNDO_DURATION_MS = 5600;
+
+  const toast = (message, opts = {}) => {
     const prev = document.getElementById('app-toast');
     if (prev) prev.remove();
 
+    const actionLabel = opts.actionLabel ? String(opts.actionLabel) : '';
+    const onAction = typeof opts.onAction === 'function' ? opts.onAction : null;
+    const duration = onAction ? TOAST_UNDO_DURATION_MS : TOAST_DURATION_MS;
+
     const wrap = document.createElement('div');
     wrap.id = 'app-toast';
-    wrap.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[100]';
+    wrap.className =
+      'fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-[100] w-[min(22rem,calc(100vw-1.5rem))]';
 
     const card = document.createElement('div');
     card.className =
-      'relative min-w-[260px] max-w-[88vw] px-4 py-3 pr-10 rounded-2xl border border-emerald-400/55 dark:border-emerald-300/35 bg-emerald-50/95 dark:bg-emerald-500/20 backdrop-blur-md text-emerald-950 dark:text-emerald-50 shadow-[0_14px_38px_-14px_rgba(16,185,129,0.28)] dark:shadow-[0_14px_38px_-14px_rgba(16,185,129,0.65)]';
+      'relative w-full px-4 py-3 rounded-2xl border border-emerald-400/55 dark:border-emerald-300/35 bg-emerald-50/95 dark:bg-emerald-500/20 backdrop-blur-md text-emerald-950 dark:text-emerald-50 shadow-[0_14px_38px_-14px_rgba(16,185,129,0.28)] dark:shadow-[0_14px_38px_-14px_rgba(16,185,129,0.65)]';
     card.style.opacity = '0';
     card.style.transition = 'opacity 180ms ease';
 
+    const row = document.createElement('div');
+    row.className = 'flex items-start gap-3 pr-7';
+
     const text = document.createElement('div');
-    text.className = 'font-semibold text-sm leading-snug';
+    text.className = 'font-semibold text-sm leading-snug flex-1 min-w-0 pt-0.5';
     text.textContent = String(message || '');
+
+    row.appendChild(text);
+
+    if (onAction && actionLabel) {
+      const actionBtn = document.createElement('button');
+      actionBtn.type = 'button';
+      actionBtn.className =
+        'shrink-0 self-center rounded-xl border border-emerald-700/25 dark:border-emerald-100/25 bg-white/80 dark:bg-white/10 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-emerald-900 dark:text-emerald-50 active:scale-[0.98]';
+      actionBtn.textContent = actionLabel;
+      actionBtn.addEventListener(
+        'click',
+        (e) => {
+          e.preventDefault();
+          removeToast();
+          try {
+            onAction();
+          } catch (err) {
+            console.warn('[Padelio] toast action failed', err);
+          }
+        },
+        { once: true }
+      );
+      row.appendChild(actionBtn);
+    }
 
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
@@ -68,9 +102,9 @@
     timer.className =
       'absolute left-2 right-2 bottom-1 h-0.5 rounded-full bg-emerald-600/35 dark:bg-emerald-200/80 origin-left';
     timer.style.width = '100%';
-    timer.style.transition = `width ${TOAST_DURATION_MS}ms linear`;
+    timer.style.transition = `width ${duration}ms linear`;
 
-    card.appendChild(text);
+    card.appendChild(row);
     card.appendChild(closeBtn);
     card.appendChild(timer);
     wrap.appendChild(card);
@@ -85,13 +119,12 @@
     };
 
     closeBtn.addEventListener('click', removeToast, { once: true });
-    const removeTimer = setTimeout(removeToast, TOAST_DURATION_MS);
+    const removeTimer = setTimeout(removeToast, duration);
 
     requestAnimationFrame(() => {
       card.style.opacity = '1';
       timer.style.width = '0%';
     });
-
   };
   const TOAST_AFTER_RELOAD_KEY = 'padelio_toast_after_reload';
   const queueToastAfterReload = (message) => {
@@ -1005,6 +1038,37 @@
     return false;
   };
 
+  const mexLexEqual = (a, b) => {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  };
+
+  const countAvoidPartnerHits = (team1, team2, resolve, avoidPartners) => {
+    if (!avoidPartners || avoidPartners.size === 0) return 0;
+    let hits = 0;
+    const t1 = Array.isArray(team1) ? team1 : [];
+    const t2 = Array.isArray(team2) ? team2 : [];
+    if (t1.length === 2) {
+      const k = pairKey(resolve(t1[0]), resolve(t1[1]));
+      if (avoidPartners.has(k)) hits++;
+    }
+    if (t2.length === 2) {
+      const k = pairKey(resolve(t2[0]), resolve(t2[1]));
+      if (avoidPartners.has(k)) hits++;
+    }
+    return hits;
+  };
+
+  const activeSetKey = (names, resolve) =>
+    (Array.isArray(names) ? names : [])
+      .map((n) => resolve(n))
+      .filter(Boolean)
+      .sort()
+      .join('|');
+
   const scoreMexOpponentPairs = (pairA, pairB, opposeCount) => {
     let s = 0;
     forEachMexOpponentPair(pairA, pairB, (a, b) => {
@@ -1221,27 +1285,30 @@
     lastRoundPartnerSet,
     lastRoundMatchupSet,
     resolve,
-    levelByName
+    levelByName,
+    opts = {}
   ) => {
+    const random = opts.random || Math.random;
+    const avoidPartners = opts.avoidPartners || null;
     const [a, b, c, d] = quadNames;
     const splits = [
       { classic: true, t1: [a, b], t2: [c, d] },
       { classic: false, t1: [a, c], t2: [b, d] },
       { classic: false, t1: [a, d], t2: [b, c] }
     ];
-    let best = null;
     let bestLex = null;
+    const winners = [];
     for (const sp of splits) {
       let sc = scoreNormalMexicanoMatch(
         sp.t1, sp.t2, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName
       );
       if (!sp.classic) sc += NORMAL_MEX_CLASSIC_SPLIT_BIAS;
-      const pairA = { m: resolve(sp.t1[0]), f: resolve(sp.t1[1]) };
-      const pairB = { m: resolve(sp.t2[0]), f: resolve(sp.t2[1]) };
       const m = mexNormalSplitLexMetrics(
         sp.t1, sp.t2, history, lastRoundMatchupSet, resolve
       );
+      const avoidHit = countAvoidPartnerHits(sp.t1, sp.t2, resolve, avoidPartners);
       const tuple = [
+        avoidHit,
         m.wouldConsecutiveExact,
         m.wouldExactRepeat,
         m.wouldGroup3x,
@@ -1254,9 +1321,13 @@
       ];
       if (!bestLex || mexLexLess(tuple, bestLex)) {
         bestLex = tuple;
-        best = { sc, t1: sp.t1, t2: sp.t2 };
+        winners.length = 0;
+        winners.push({ sc, t1: sp.t1, t2: sp.t2 });
+      } else if (mexLexEqual(tuple, bestLex)) {
+        winners.push({ sc, t1: sp.t1, t2: sp.t2 });
       }
     }
+    const best = winners[Math.floor(random() * winners.length)] || winners[0];
     return { team1: best.t1, team2: best.t2, score: best.sc };
   };
 
@@ -1921,7 +1992,8 @@
     usedCourts,
     rounds,
     roundNo,
-    tournament
+    tournament,
+    opts = {}
   ) => {
     const rn = Number(roundNo) || 1;
     const tSub = {
@@ -1954,7 +2026,7 @@
       const quad = ordered.slice(c * 4, c * 4 + 4);
       if (quad.length < 4) break;
       const split = pickBestNormalMexicanoQuadSplit(
-        quad, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName
+        quad, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName, opts
       );
       roundScore += split.score || 0;
       matches.push({
@@ -2317,7 +2389,14 @@
     /** Canonical player name currently being renamed on the host leaderboard (null = none). */
     lbRenamingFrom: null,
     /** Active match slot when opening the substitute-player modal. */
-    substituteContext: null
+    substituteContext: null,
+    /**
+     * Set while regenerate shuffle is rebuilding a round:
+     * prefer different partners / active set than the round just discarded.
+     */
+    pairingVariety: null,
+    /** Single undo snapshot for the last host mutation (null = none). */
+    undoEntry: null
   };
 
   const TOURNAMENT_DESKTOP_MQ = '(min-width: 1024px)';
@@ -2452,6 +2531,119 @@
     );
     if (idx >= 0) state.tournaments[idx] = { ...state.tournaments[idx], rounds: raw };
     _roundsCache = { raw, data: roundsArr };
+  };
+
+  /* ---------- Host undo (snapshot last mutation only; does not touch pairing engines) ---------- */
+  const clearUndo = () => {
+    state.undoEntry = null;
+    updateUndoUi();
+  };
+
+  const captureUndoSnapshot = () => {
+    const t = state.currentTournament;
+    if (!t || state.shareViewerMode) return null;
+    return {
+      rounds: t.rounds ?? '[]',
+      current_round: t.current_round,
+      players: t.players,
+      courts: t.courts,
+      social_schedule_json: t.social_schedule_json ?? null,
+      mix_schedule_json: t.mix_schedule_json ?? null
+    };
+  };
+
+  const pushUndoSnapshot = (label) => {
+    if (state.shareViewerMode || !state.currentTournament) return;
+    const snapshot = captureUndoSnapshot();
+    if (!snapshot) return;
+    state.undoEntry = {
+      label: String(label || 'Last change'),
+      tournamentId: state.currentTournament.__backendId,
+      snapshot,
+      viewingRound: state.viewingRound
+    };
+    updateUndoUi();
+  };
+
+  const toastWithUndo = (message) => {
+    toast(message, {
+      actionLabel: 'Undo',
+      onAction: () => {
+        undoLastChange();
+      }
+    });
+  };
+
+  const updateUndoUi = () => {
+    const btn = $('btn-undo-last');
+    if (!btn) return;
+    const entry = state.undoEntry;
+    const ok =
+      !state.shareViewerMode &&
+      !!state.currentTournament &&
+      !!entry &&
+      entry.tournamentId === state.currentTournament.__backendId;
+    btn.classList.toggle('hidden', !ok);
+    btn.disabled = !ok;
+    if (ok) {
+      btn.setAttribute('aria-label', `Undo ${entry.label}`);
+      btn.title = `Undo: ${entry.label}`;
+      const labelEl = btn.querySelector('[data-undo-label]');
+      if (labelEl) labelEl.textContent = `Undo · ${entry.label}`;
+    }
+  };
+
+  const undoLastChange = async () => {
+    if (state.shareViewerMode) return;
+    syncCurrentTournament();
+    const entry = state.undoEntry;
+    const t = state.currentTournament;
+    if (!entry || !t || t.__backendId !== entry.tournamentId) {
+      clearUndo();
+      toast('Nothing to undo.');
+      return;
+    }
+
+    const snap = entry.snapshot;
+    t.rounds = snap.rounds;
+    t.current_round = snap.current_round;
+    t.players = snap.players;
+    t.courts = snap.courts;
+    if (snap.social_schedule_json == null) delete t.social_schedule_json;
+    else t.social_schedule_json = snap.social_schedule_json;
+    if (snap.mix_schedule_json == null) delete t.mix_schedule_json;
+    else t.mix_schedule_json = snap.mix_schedule_json;
+
+    const idx = state.tournaments.findIndex((x) => x.__backendId === t.__backendId);
+    if (idx >= 0) {
+      state.tournaments[idx] = {
+        ...state.tournaments[idx],
+        rounds: t.rounds,
+        current_round: t.current_round,
+        players: t.players,
+        courts: t.courts,
+        social_schedule_json: t.social_schedule_json,
+        mix_schedule_json: t.mix_schedule_json
+      };
+    }
+
+    _roundsCache = { raw: null, data: [] };
+    state.viewingRound = entry.viewingRound ?? t.current_round;
+    state.isEditingScore = false;
+    clearUndo();
+
+    try {
+      await saveCurrentTournament();
+    } catch {
+      toast('Restored locally; sync may retry');
+    }
+
+    ensureViewingRoundValid();
+    updateRoundIndicator();
+    renderSpecificRound(state.viewingRound);
+    maybeRefreshDesktopLeaderboard();
+    renderTournamentList();
+    toast('Undone');
   };
 
   const formatPlayerDisplayName = (raw) => {
@@ -2687,6 +2879,8 @@
       if (!window.confirm(msg)) return { ok: false, error: 'cancelled' };
     }
 
+    if (!opts.skipUndo) pushUndoSnapshot('Replace player');
+
     const rounds = getRounds();
     const roundData = rounds.find((r) => Number(r.round) === Number(roundNo));
     const match = roundData?.matches?.[matchIdx];
@@ -2713,11 +2907,11 @@
     }
 
     refreshAfterPlayerSubstitute();
-    toast(`${outgoing} replaced by ${formatted} for this match`);
-
-    if (mode === 'fixed' || mode === 'fixedmex') {
-      toast('Note: ad-hoc pair may not count in pair standings for this match');
-    }
+    const note =
+      mode === 'fixed' || mode === 'fixedmex'
+        ? ' (ad-hoc pair may not count in pair standings)'
+        : '';
+    toastWithUndo(`${outgoing} replaced by ${formatted} for this match${note}`);
 
     return { ok: true, from: outgoing, to: formatted };
   };
@@ -3881,6 +4075,8 @@
       return;
     }
 
+    pushUndoSnapshot('Game point');
+
     const g = match.mx_game ? { ...match.mx_game } : { i1: 0, i2: 0 };
     const side = team === 1 ? 1 : 2;
     let awarded = false;
@@ -4064,10 +4260,12 @@
    * (computeLeaderboardSorted) and assign top 4 -> court 1, next 4 -> court 2, etc.
    * Within each court, pick the best 2v2 split that minimizes repeat partners/opponents.
    */
-  function buildMexicanoMatches (players, courts, rounds, roundNo, tournament) {
+  function buildMexicanoMatches (players, courts, rounds, roundNo, tournament, opts = {}) {
     const cap = computeMexicanoRoundCapacity(players.length, courts);
     if (cap.usedCourtsPerRound <= 0) return [];
 
+    const random = opts.random || Math.random;
+    const resolve = makeRosterNameResolve(players);
     const candidates = enumerateNormalMexicanoFairActiveSets(
       players, courts, rounds, roundNo, 16
     );
@@ -4079,9 +4277,10 @@
     );
     const idealGamesInt = Number.isInteger(targets.idealGamesPerPlayer);
     const idealByesInt = Number.isInteger(targets.idealByesPerPlayer);
+    const avoidActiveKey = opts.avoidActiveKey || '';
 
-    let bestMatches = null;
     let bestTuple = null;
+    const winners = [];
     for (const active of candidates) {
       const { matches, roundScore } = buildNormalMexicanoRoundFromActive(
         players,
@@ -4089,7 +4288,8 @@
         cap.usedCourtsPerRound,
         rounds,
         roundNo,
-        tournament
+        tournament,
+        opts
       );
       const proj = projectMexicanoFairnessAfterRound(players, gamesPlayed, byeCount, active);
       let fairnessPenalty = 0;
@@ -4105,13 +4305,26 @@
           (s, b) => s + Math.abs(b - targets.idealByesPerPlayer), 0
         );
       }
-      const tuple = [fairnessPenalty, proj.gamesDiff, proj.byeDiff, exactPenalty, roundScore];
+      const avoidActiveHit =
+        avoidActiveKey && activeSetKey(active, resolve) === avoidActiveKey ? 1 : 0;
+      const tuple = [
+        fairnessPenalty,
+        proj.gamesDiff,
+        proj.byeDiff,
+        exactPenalty,
+        avoidActiveHit,
+        roundScore
+      ];
       if (!bestTuple || mexLexLess(tuple, bestTuple)) {
         bestTuple = tuple;
-        bestMatches = matches;
+        winners.length = 0;
+        winners.push(matches);
+      } else if (mexLexEqual(tuple, bestTuple)) {
+        winners.push(matches);
       }
     }
-    return bestMatches || [];
+    if (winners.length === 0) return [];
+    return winners[Math.floor(random() * winners.length)] || winners[0];
   }
 
   /**
@@ -4712,7 +4925,9 @@
       const maxCourts = Math.min(courts, Math.floor(players.length / 4));
       let matches = [];
       if (maxCourts > 0) {
-        matches = buildMexicanoMatches(players, courts, rounds, roundNo, state.currentTournament);
+        matches = buildMexicanoMatches(
+          players, courts, rounds, roundNo, state.currentTournament, state.pairingVariety || {}
+        );
       }
       roundData = { round: roundNo, matches };
       rounds.push(roundData);
@@ -4825,7 +5040,10 @@
               priorRounds: rounds,
               roundNo,
               levelByName,
-              opts: { fixedActiveNames: active }
+              opts: {
+                fixedActiveNames: active,
+                ...(state.pairingVariety || {})
+              }
             });
             const ok =
               out &&
@@ -4876,7 +5094,10 @@
             players,
             courts,
             priorRounds: rounds,
-            roundNo
+            roundNo,
+            opts: {
+              ...(state.pairingVariety || {})
+            }
           });
           if (out && Array.isArray(out.matches) && !out.error) {
             matches = out.matches;
@@ -4942,9 +5163,13 @@
 
   const updateRoundActionButtons = () => {
     const btn = $('btn-regenerate-round');
-    if (!btn) return;
+    if (!btn) {
+      updateUndoUi();
+      return;
+    }
     if (state.shareViewerMode || !state.currentTournament) {
       btn.classList.add('hidden');
+      updateUndoUi();
       return;
     }
     btn.classList.remove('hidden');
@@ -4954,6 +5179,38 @@
     btn.disabled = !can;
     btn.classList.toggle('opacity-40', !can);
     btn.classList.toggle('cursor-not-allowed', !can);
+    updateUndoUi();
+  };
+
+  const roundMatchFingerprint = (roundData) =>
+    (roundData?.matches || [])
+      .map((m) => {
+        const t1 = [...(m.team1 || [])].map((n) => fixCommonNameTypos(n)).sort().join('+');
+        const t2 = [...(m.team2 || [])].map((n) => fixCommonNameTypos(n)).sort().join('+');
+        return [t1, t2].sort().join(' vs ');
+      })
+      .sort()
+      .join(' || ');
+
+  const collectPairingVarietyFromRound = (roundData) => {
+    const avoidPartners = new Set();
+    const active = [];
+    (roundData?.matches || []).forEach((m) => {
+      for (const team of [m.team1, m.team2]) {
+        if (Array.isArray(team) && team.length === 2) {
+          avoidPartners.add(
+            pairKey(fixCommonNameTypos(team[0]), fixCommonNameTypos(team[1]))
+          );
+        }
+      }
+      for (const n of [...(m.team1 || []), ...(m.team2 || [])]) {
+        active.push(fixCommonNameTypos(n));
+      }
+    });
+    return {
+      avoidPartners,
+      avoidActiveKey: active.map((n) => playerNameDuplicateKey(n)).sort().join('|')
+    };
   };
 
   const regenerateCurrentRound = async () => {
@@ -4971,12 +5228,32 @@
     ) {
       return;
     }
-    const rounds = getRounds().filter((r) => Number(r.round) !== roundNo);
-    setRounds(rounds);
-    await generateRound();
-    state.viewingRound = roundNo;
-    renderSpecificRound(roundNo);
-    toast('Round shuffled again.');
+
+    pushUndoSnapshot('Regenerate shuffle');
+
+    const beforeRound = getRounds().find((r) => Number(r.round) === roundNo) || null;
+    const beforeFp = roundMatchFingerprint(beforeRound);
+    state.pairingVariety = collectPairingVarietyFromRound(beforeRound);
+
+    try {
+      let changed = false;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const rounds = getRounds().filter((r) => Number(r.round) !== roundNo);
+        setRounds(rounds);
+        await generateRound();
+        const afterRound = getRounds().find((r) => Number(r.round) === roundNo);
+        const afterFp = roundMatchFingerprint(afterRound);
+        if (afterFp && afterFp !== beforeFp) {
+          changed = true;
+          break;
+        }
+      }
+      state.viewingRound = roundNo;
+      renderSpecificRound(roundNo);
+      toastWithUndo(changed ? 'Round shuffled again.' : 'Round rebuilt (same fair lineup).');
+    } finally {
+      state.pairingVariety = null;
+    }
   };
 
   const renderSpecificRound = (roundNumber) => {
@@ -5012,7 +5289,11 @@
 
   /* ---------- Score editing ---------- */
   const setEditingScore = (v) => {
-    state.isEditingScore = !!v;
+    const next = !!v;
+    if (next && !state.isEditingScore) {
+      pushUndoSnapshot('Score change');
+    }
+    state.isEditingScore = next;
   };
 
   const updateScoreLive = (matchIdx, team) => {
@@ -5247,6 +5528,7 @@
 
     state.viewingRound = activeRound - 1;
     renderSpecificRound(state.viewingRound);
+    playRoundSwipeMotion('prev');
   };
 
   const nextRoundView = () => {
@@ -5259,11 +5541,120 @@
 
     state.viewingRound = activeRound + 1;
     renderSpecificRound(state.viewingRound);
+    playRoundSwipeMotion('next');
+  };
+
+  /* ---------- Mobile horizontal swipe (additive; buttons stay) ---------- */
+  const SWIPE_MIN_DX = 56;
+  const SWIPE_AXIS_LOCK_PX = 12;
+
+  const isSwipeBlockedTarget = (target) => {
+    if (!target || typeof target.closest !== 'function') return true;
+    return !!target.closest(
+      'input, textarea, select, button, a, label, [role="button"], [contenteditable="true"], .no-swipe'
+    );
+  };
+
+  const playRoundSwipeMotion = (dir) => {
+    const surface = $('padel-round-swipe-surface') || $('courts-container');
+    if (!surface) return;
+    surface.classList.add('padel-swipe-surface');
+    surface.classList.remove('padel-swipe-from-left', 'padel-swipe-from-right');
+    // force reflow so repeated swipes retrigger animation
+    void surface.offsetWidth;
+    surface.classList.add(dir === 'next' ? 'padel-swipe-from-right' : 'padel-swipe-from-left');
+  };
+
+  const wireHorizontalSwipe = (el, handlers = {}) => {
+    if (!el || el.dataset.padSwipeWired === '1') return;
+    el.dataset.padSwipeWired = '1';
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    let axis = null;
+
+    const reset = () => {
+      tracking = false;
+      axis = null;
+    };
+
+    el.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length !== 1) return;
+        if (isSwipeBlockedTarget(e.target)) return;
+        tracking = true;
+        axis = null;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+      },
+      { passive: true }
+    );
+
+    el.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!tracking || e.touches.length !== 1) return;
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
+          axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+        }
+      },
+      { passive: true }
+    );
+
+    el.addEventListener(
+      'touchend',
+      (e) => {
+        if (!tracking) return;
+        const wasAxis = axis;
+        reset();
+        if (wasAxis !== 'x') return;
+        const t = e.changedTouches?.[0];
+        if (!t) return;
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.abs(dx) < SWIPE_MIN_DX) return;
+        if (Math.abs(dy) > Math.abs(dx) * 0.75) return;
+        if (dx < 0) handlers.onSwipeLeft?.();
+        else handlers.onSwipeRight?.();
+      },
+      { passive: true }
+    );
+
+    el.addEventListener('touchcancel', reset, { passive: true });
+  };
+
+  const wireMobileSwipeGestures = () => {
+    const hostScroll = document.querySelector('#page-rounds .host-rounds-scroll');
+    wireHorizontalSwipe(hostScroll, {
+      onSwipeLeft: () => nextRoundView(),
+      onSwipeRight: () => prevRoundView()
+    });
+
+    // Spectator (mobile): swipe between Leaderboard ↔ Rounds tabs
+    const shareWorkspace = $('share-tournament-workspace');
+    wireHorizontalSwipe(shareWorkspace, {
+      onSwipeLeft: () => {
+        if (isTournamentDesktopLayout()) return;
+        if (!state.shareViewerMode) return;
+        if (state.shareMobileTab === 'leaderboard') switchShareTab('rounds');
+      },
+      onSwipeRight: () => {
+        if (isTournamentDesktopLayout()) return;
+        if (!state.shareViewerMode) return;
+        if (state.shareMobileTab === 'rounds') switchShareTab('leaderboard');
+      }
+    });
   };
 
   const nextRound = async () => {
     syncCurrentTournament();
     if (!state.currentTournament) return;
+
+    pushUndoSnapshot('Next round');
 
     state.currentTournament.current_round = (Number(state.currentTournament.current_round) || 1) + 1;
     state.viewingRound = state.currentTournament.current_round;
@@ -5275,6 +5666,7 @@
 
     state.viewingRound = state.currentTournament.current_round;
     renderSpecificRound(state.viewingRound);
+    toastWithUndo(`Round ${state.currentTournament.current_round}`);
   };
 
   /* ---------- Open tournament ---------- */
@@ -5282,6 +5674,7 @@
     state.currentTournament = state.tournaments.find((t) => t.__backendId === id) || null;
     if (!state.currentTournament) return;
 
+    clearUndo();
     state.viewingRound = state.currentTournament.current_round;
 
     const title = $('round-title');
@@ -5433,13 +5826,15 @@
       'Current and past rounds stay as they are. Only the next round you generate will use the new court count.';
     if (!window.confirm(msg)) return false;
 
+    pushUndoSnapshot('Change courts');
+
     t.courts = newN;
     invalidateTournamentScheduleCaches(t);
     await saveCurrentTournament();
     hideCourtsChangePanel();
     updateRoundIndicator();
     renderTournamentList();
-    toast(
+    toastWithUndo(
       `Courts set to ${newN}. Next round will use ${newN} court${newN > 1 ? 's' : ''}.`
     );
     return true;
@@ -5595,8 +5990,11 @@
     const mode = state.currentTournament.mode || 'normal';
     const gender = isMixLikeMode(mode) ? genderSelect?.value : null;
 
+    pushUndoSnapshot('Replace player');
+
     const guestResult = addGuestPlayerToRoster(nameInput?.value ?? '', gender);
     if (!guestResult.ok) {
+      clearUndo();
       toast(guestResult.error || 'Could not add guest');
       return;
     }
@@ -5612,7 +6010,8 @@
       ctx.matchIdx,
       ctx.teamSide,
       ctx.slotIdx,
-      guestResult.name
+      guestResult.name,
+      { skipConfirm: true, skipUndo: true }
     );
     if (!result.ok) {
       if (result.error !== 'cancelled') toast(result.error || 'Could not replace player');
@@ -5642,6 +6041,7 @@
     const result = await window.dataSdk.delete(tournament);
     if (result?.isOk) {
       if (state.currentTournament?.__backendId === id) {
+        clearUndo();
         state.currentTournament = null;
         navigateTo('home');
       }
@@ -7347,6 +7747,7 @@
       return false;
     }
     state.shareViewerMode = true;
+    clearUndo();
     state.shareViewerData = data;
     return true;
   };
@@ -7576,6 +7977,8 @@
   };
   wireWizardChipClicks();
 
+  wireMobileSwipeGestures();
+
   const courtsChangeRoot = $('courts-change-chips');
   if (courtsChangeRoot && courtsChangeRoot.dataset.padChipDlgt !== '1') {
     courtsChangeRoot.dataset.padChipDlgt = '1';
@@ -7642,6 +8045,7 @@
   window.changeTournamentCourts = changeTournamentCourts;
 
   window.regenerateCurrentRound = regenerateCurrentRound;
+  window.undoLastChange = undoLastChange;
 
   window.openSubstitutePlayerModal = openSubstitutePlayerModal;
   window.closeSubstitutePlayerModal = closeSubstitutePlayerModal;

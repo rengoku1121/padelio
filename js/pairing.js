@@ -929,6 +929,37 @@
     return false;
   };
 
+  const mexLexEqual = (a, b) => {
+    if (!a || !b || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  };
+
+  const countAvoidPartnerHits = (team1, team2, resolve, avoidPartners) => {
+    if (!avoidPartners || avoidPartners.size === 0) return 0;
+    let hits = 0;
+    const t1 = Array.isArray(team1) ? team1 : [];
+    const t2 = Array.isArray(team2) ? team2 : [];
+    if (t1.length === 2) {
+      const k = pairKey(resolve(t1[0]), resolve(t1[1]));
+      if (avoidPartners.has(k)) hits++;
+    }
+    if (t2.length === 2) {
+      const k = pairKey(resolve(t2[0]), resolve(t2[1]));
+      if (avoidPartners.has(k)) hits++;
+    }
+    return hits;
+  };
+
+  const activeSetKey = (names, resolve) =>
+    (Array.isArray(names) ? names : [])
+      .map((n) => resolve(n))
+      .filter(Boolean)
+      .sort()
+      .join('|');
+
   const computeMexicanoRoundCapacity = (totalPlayers, courts) => {
     const n = Math.max(0, Math.floor(Number(totalPlayers) || 0));
     const c = Math.max(0, Math.floor(Number(courts) || 0));
@@ -2741,27 +2772,30 @@
     lastRoundPartnerSet,
     lastRoundMatchupSet,
     resolve,
-    levelByName
+    levelByName,
+    opts = {}
   ) => {
+    const random = opts.random || Math.random;
+    const avoidPartners = opts.avoidPartners || null;
     const [a, b, c, d] = quadNames;
     const splits = [
       { classic: true, t1: [a, b], t2: [c, d] },
       { classic: false, t1: [a, c], t2: [b, d] },
       { classic: false, t1: [a, d], t2: [b, c] }
     ];
-    let best = null;
     let bestLex = null;
+    const winners = [];
     for (const sp of splits) {
       let sc = scoreNormalMexicanoMatch(
         sp.t1, sp.t2, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName
       );
       if (!sp.classic) sc += NORMAL_MEX_CLASSIC_SPLIT_BIAS;
-      const pairA = { m: resolve(sp.t1[0]), f: resolve(sp.t1[1]) };
-      const pairB = { m: resolve(sp.t2[0]), f: resolve(sp.t2[1]) };
       const m = mexNormalSplitLexMetrics(
         sp.t1, sp.t2, history, lastRoundMatchupSet, resolve
       );
+      const avoidHit = countAvoidPartnerHits(sp.t1, sp.t2, resolve, avoidPartners);
       const tuple = [
+        avoidHit,
         m.wouldConsecutiveExact,
         m.wouldExactRepeat,
         m.wouldGroup3x,
@@ -2774,9 +2808,13 @@
       ];
       if (!bestLex || mexLexLess(tuple, bestLex)) {
         bestLex = tuple;
-        best = { sc, t1: sp.t1, t2: sp.t2 };
+        winners.length = 0;
+        winners.push({ sc, t1: sp.t1, t2: sp.t2 });
+      } else if (mexLexEqual(tuple, bestLex)) {
+        winners.push({ sc, t1: sp.t1, t2: sp.t2 });
       }
     }
+    const best = winners[Math.floor(random() * winners.length)] || winners[0];
     return { team1: best.t1, team2: best.t2, score: best.sc };
   };
 
@@ -2787,7 +2825,8 @@
     rounds,
     roundNo,
     tournament,
-    playersFull
+    playersFull,
+    opts = {}
   ) => {
     const rn = Number(roundNo) || 1;
     const tSub = {
@@ -2820,7 +2859,7 @@
       const quad = ordered.slice(c * 4, c * 4 + 4);
       if (quad.length < 4) break;
       const split = pickBestNormalMexicanoQuadSplit(
-        quad, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName
+        quad, history, lastRoundPartnerSet, lastRoundMatchupSet, resolve, levelByName, opts
       );
       roundScore += split.score || 0;
       matches.push({
@@ -3261,10 +3300,12 @@
    * @param {object}   tournament
    * @param {Array}    [playersFull] - [{name,level,...}] for Balanced mode level display
    */
-  function buildMexicanoMatches(players, courts, rounds, roundNo, tournament, playersFull) {
+  function buildMexicanoMatches(players, courts, rounds, roundNo, tournament, playersFull, opts = {}) {
     const cap = computeMexicanoRoundCapacity(players.length, courts);
     if (cap.usedCourtsPerRound <= 0) return [];
 
+    const random = opts.random || Math.random;
+    const resolve = makeRosterNameResolve(players);
     const candidates = enumerateNormalMexicanoFairActiveSets(
       players, courts, rounds, roundNo, 16
     );
@@ -3276,9 +3317,10 @@
     );
     const idealGamesInt = Number.isInteger(targets.idealGamesPerPlayer);
     const idealByesInt = Number.isInteger(targets.idealByesPerPlayer);
+    const avoidActiveKey = opts.avoidActiveKey || '';
 
-    let bestMatches = null;
     let bestTuple = null;
+    const winners = [];
     for (const active of candidates) {
       const { matches, roundScore } = buildNormalMexicanoRoundFromActive(
         players,
@@ -3287,7 +3329,8 @@
         rounds,
         roundNo,
         tournament,
-        playersFull
+        playersFull,
+        opts
       );
       const proj = projectMexicanoFairnessAfterRound(players, gamesPlayed, byeCount, active);
       let fairnessPenalty = 0;
@@ -3303,13 +3346,26 @@
           (s, b) => s + Math.abs(b - targets.idealByesPerPlayer), 0
         );
       }
-      const tuple = [fairnessPenalty, proj.gamesDiff, proj.byeDiff, exactPenalty, roundScore];
+      const avoidActiveHit =
+        avoidActiveKey && activeSetKey(active, resolve) === avoidActiveKey ? 1 : 0;
+      const tuple = [
+        fairnessPenalty,
+        proj.gamesDiff,
+        proj.byeDiff,
+        exactPenalty,
+        avoidActiveHit,
+        roundScore
+      ];
       if (!bestTuple || mexLexLess(tuple, bestTuple)) {
         bestTuple = tuple;
-        bestMatches = matches;
+        winners.length = 0;
+        winners.push(matches);
+      } else if (mexLexEqual(tuple, bestTuple)) {
+        winners.push(matches);
       }
     }
-    return bestMatches || [];
+    if (winners.length === 0) return [];
+    return winners[Math.floor(random() * winners.length)] || winners[0];
   }
 
   /**
