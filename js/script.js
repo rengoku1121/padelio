@@ -2589,7 +2589,7 @@
       btn.setAttribute('aria-label', `Undo ${entry.label}`);
       btn.title = `Undo: ${entry.label}`;
       const labelEl = btn.querySelector('[data-undo-label]');
-      if (labelEl) labelEl.textContent = `Undo · ${entry.label}`;
+      if (labelEl) labelEl.textContent = 'Undo';
     }
   };
 
@@ -2605,6 +2605,21 @@
     }
 
     const snap = entry.snapshot;
+    const curRounds = getRounds();
+    const snapRounds = safeJsonParse(snap.rounds, []);
+    const curRoundNo = Number(t.current_round) || 1;
+    const snapRoundNo = Number(snap.current_round) || 1;
+    const dropsRounds =
+      snapRounds.length < curRounds.length || snapRoundNo < curRoundNo;
+
+    if (dropsRounds) {
+      const msg =
+        `Undo “${entry.label}”?\n\n` +
+        'This will remove the latest round progress and go back to the previous round. ' +
+        'Earlier scored rounds stay saved.';
+      if (!window.confirm(msg)) return;
+    }
+
     t.rounds = snap.rounds;
     t.current_round = snap.current_round;
     t.players = snap.players;
@@ -5506,16 +5521,50 @@
 
     const prevBtn = $('btn-prev-round');
     const nextBtn = $('btn-next-round');
-    if (!prevBtn || !nextBtn) return;
+    if (prevBtn && nextBtn) {
+      const prevDisabled = activeRound <= 1;
+      const nextDisabled = activeRound >= maxRound;
 
-    const prevDisabled = activeRound <= 1;
-    const nextDisabled = activeRound >= maxRound;
+      prevBtn.classList.toggle('opacity-30', prevDisabled);
+      prevBtn.classList.toggle('cursor-not-allowed', prevDisabled);
+      prevBtn.disabled = prevDisabled;
 
-    prevBtn.classList.toggle('opacity-30', prevDisabled);
-    prevBtn.classList.toggle('cursor-not-allowed', prevDisabled);
+      nextBtn.classList.toggle('opacity-30', nextDisabled);
+      nextBtn.classList.toggle('cursor-not-allowed', nextDisabled);
+      nextBtn.disabled = nextDisabled;
+    }
 
-    nextBtn.classList.toggle('opacity-30', nextDisabled);
-    nextBtn.classList.toggle('cursor-not-allowed', nextDisabled);
+    updateRoundPagerDots(activeRound, maxRound);
+  };
+
+  const updateRoundPagerDots = (activeRound, maxRound) => {
+    const host = $('host-round-dots');
+    if (!host) return;
+    const max = Math.max(1, Math.min(24, Number(maxRound) || 1));
+    const cur = clamp(Number(activeRound) || 1, 1, max);
+    if (max <= 1) {
+      host.innerHTML = '';
+      host.classList.add('hidden');
+      return;
+    }
+    host.classList.remove('hidden');
+    // Collapse many rounds into a compact window around current.
+    let start = 1;
+    let end = max;
+    if (max > 9) {
+      start = Math.max(1, cur - 4);
+      end = Math.min(max, start + 8);
+      start = Math.max(1, end - 8);
+    }
+    const bits = [];
+    if (start > 1) bits.push('<span class="host-round-dot host-round-dot--more"></span>');
+    for (let i = start; i <= end; i++) {
+      bits.push(
+        `<span class="host-round-dot${i === cur ? ' is-active' : ''}" title="Round ${i}"></span>`
+      );
+    }
+    if (end < max) bits.push('<span class="host-round-dot host-round-dot--more"></span>');
+    host.innerHTML = bits.join('');
   };
 
   const prevRoundView = () => {
@@ -5524,7 +5573,10 @@
 
     const maxRound = getMaxRoundNumber();
     const activeRound = Number(state.viewingRound ?? maxRound) || 1;
-    if (activeRound <= 1) return;
+    if (activeRound <= 1) {
+      bumpRoundEdge('prev');
+      return;
+    }
 
     state.viewingRound = activeRound - 1;
     renderSpecificRound(state.viewingRound);
@@ -5537,16 +5589,20 @@
 
     const maxRound = getMaxRoundNumber();
     const activeRound = Number(state.viewingRound ?? maxRound) || 1;
-    if (activeRound >= maxRound) return;
+    if (activeRound >= maxRound) {
+      bumpRoundEdge('next');
+      return;
+    }
 
     state.viewingRound = activeRound + 1;
     renderSpecificRound(state.viewingRound);
     playRoundSwipeMotion('next');
   };
 
-  /* ---------- Mobile horizontal swipe (additive; buttons stay) ---------- */
-  const SWIPE_MIN_DX = 56;
-  const SWIPE_AXIS_LOCK_PX = 12;
+  /* ---------- Mobile horizontal swipe (drag-follow, additive) ---------- */
+  const SWIPE_MIN_DX = 52;
+  const SWIPE_AXIS_LOCK_PX = 10;
+  const SWIPE_DRAG_MAX = 120;
 
   const isSwipeBlockedTarget = (target) => {
     if (!target || typeof target.closest !== 'function') return true;
@@ -5555,28 +5611,60 @@
     );
   };
 
+  const getRoundSwipeSurface = () =>
+    $('padel-round-swipe-surface') || $('courts-container');
+
+  const resetRoundSwipeTransform = (surface) => {
+    if (!surface) return;
+    surface.classList.remove('is-dragging', 'padel-swipe-from-left', 'padel-swipe-from-right');
+    surface.style.transform = '';
+    surface.style.opacity = '';
+    surface.style.transition = '';
+  };
+
   const playRoundSwipeMotion = (dir) => {
-    const surface = $('padel-round-swipe-surface') || $('courts-container');
+    const surface = getRoundSwipeSurface();
     if (!surface) return;
     surface.classList.add('padel-swipe-surface');
-    surface.classList.remove('padel-swipe-from-left', 'padel-swipe-from-right');
-    // force reflow so repeated swipes retrigger animation
+    resetRoundSwipeTransform(surface);
     void surface.offsetWidth;
     surface.classList.add(dir === 'next' ? 'padel-swipe-from-right' : 'padel-swipe-from-left');
   };
 
-  const wireHorizontalSwipe = (el, handlers = {}) => {
+  const bumpRoundEdge = (dir) => {
+    const surface = getRoundSwipeSurface();
+    if (!surface) return;
+    surface.classList.add('padel-swipe-surface');
+    surface.classList.remove('padel-swipe-edge-prev', 'padel-swipe-edge-next');
+    void surface.offsetWidth;
+    surface.classList.add(dir === 'next' ? 'padel-swipe-edge-next' : 'padel-swipe-edge-prev');
+  };
+
+  const wireDragFollowSwipe = (el, opts = {}) => {
     if (!el || el.dataset.padSwipeWired === '1') return;
     el.dataset.padSwipeWired = '1';
+
+    const getSurface = typeof opts.getSurface === 'function' ? opts.getSurface : () => el;
+    const canSwipeLeft = typeof opts.canSwipeLeft === 'function' ? opts.canSwipeLeft : () => true;
+    const canSwipeRight = typeof opts.canSwipeRight === 'function' ? opts.canSwipeRight : () => true;
 
     let startX = 0;
     let startY = 0;
     let tracking = false;
     let axis = null;
+    let lastDx = 0;
 
-    const reset = () => {
+    const resetTrack = () => {
       tracking = false;
       axis = null;
+      lastDx = 0;
+    };
+
+    const rubber = (dx, allowNeg, allowPos) => {
+      let x = dx;
+      if (x < 0 && !allowNeg) x = x * 0.28;
+      if (x > 0 && !allowPos) x = x * 0.28;
+      return Math.max(-SWIPE_DRAG_MAX, Math.min(SWIPE_DRAG_MAX, x));
     };
 
     el.addEventListener(
@@ -5584,8 +5672,11 @@
       (e) => {
         if (e.touches.length !== 1) return;
         if (isSwipeBlockedTarget(e.target)) return;
+        const surface = getSurface();
+        if (surface) resetRoundSwipeTransform(surface);
         tracking = true;
         axis = null;
+        lastDx = 0;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
       },
@@ -5599,8 +5690,24 @@
         const dx = e.touches[0].clientX - startX;
         const dy = e.touches[0].clientY - startY;
         if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
-          axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+          axis = Math.abs(dx) > Math.abs(dy) * 1.05 ? 'x' : 'y';
+          if (axis === 'y') {
+            resetTrack();
+            return;
+          }
         }
+        if (axis !== 'x') return;
+
+        const surface = getSurface();
+        if (!surface) return;
+        const allowLeft = canSwipeLeft(); // swipe left => next
+        const allowRight = canSwipeRight(); // swipe right => prev
+        const x = rubber(dx, allowLeft, allowRight);
+        lastDx = x;
+        surface.classList.add('is-dragging');
+        surface.style.transition = 'none';
+        surface.style.transform = `translate3d(${x}px,0,0)`;
+        surface.style.opacity = String(Math.max(0.72, 1 - Math.abs(x) / 280));
       },
       { passive: true }
     );
@@ -5610,41 +5717,100 @@
       (e) => {
         if (!tracking) return;
         const wasAxis = axis;
-        reset();
-        if (wasAxis !== 'x') return;
+        const dx = lastDx;
+        resetTrack();
+
+        const surface = getSurface();
+        if (surface) {
+          surface.classList.remove('is-dragging');
+          surface.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
+        }
+
+        if (wasAxis !== 'x') {
+          if (surface) resetRoundSwipeTransform(surface);
+          return;
+        }
+
         const t = e.changedTouches?.[0];
-        if (!t) return;
-        const dx = t.clientX - startX;
-        const dy = t.clientY - startY;
-        if (Math.abs(dx) < SWIPE_MIN_DX) return;
-        if (Math.abs(dy) > Math.abs(dx) * 0.75) return;
-        if (dx < 0) handlers.onSwipeLeft?.();
-        else handlers.onSwipeRight?.();
+        const endDx = t ? t.clientX - startX : dx;
+        const commit = Math.abs(endDx) >= SWIPE_MIN_DX || Math.abs(dx) >= SWIPE_MIN_DX;
+        const useDx = Math.abs(dx) > Math.abs(endDx) ? dx : endDx;
+
+        if (commit && useDx < 0 && canSwipeLeft()) {
+          if (surface) resetRoundSwipeTransform(surface);
+          opts.onSwipeLeft?.();
+          return;
+        }
+        if (commit && useDx > 0 && canSwipeRight()) {
+          if (surface) resetRoundSwipeTransform(surface);
+          opts.onSwipeRight?.();
+          return;
+        }
+
+        // snap back (or soft bump at edge)
+        if (surface) {
+          if (commit && ((useDx < 0 && !canSwipeLeft()) || (useDx > 0 && !canSwipeRight()))) {
+            resetRoundSwipeTransform(surface);
+            bumpRoundEdge(useDx < 0 ? 'next' : 'prev');
+          } else {
+            surface.style.transform = 'translate3d(0,0,0)';
+            surface.style.opacity = '1';
+            window.setTimeout(() => resetRoundSwipeTransform(surface), 200);
+          }
+        }
       },
       { passive: true }
     );
 
-    el.addEventListener('touchcancel', reset, { passive: true });
+    el.addEventListener(
+      'touchcancel',
+      () => {
+        const surface = getSurface();
+        resetTrack();
+        if (surface) resetRoundSwipeTransform(surface);
+      },
+      { passive: true }
+    );
   };
 
   const wireMobileSwipeGestures = () => {
     const hostScroll = document.querySelector('#page-rounds .host-rounds-scroll');
-    wireHorizontalSwipe(hostScroll, {
+    wireDragFollowSwipe(hostScroll, {
+      getSurface: getRoundSwipeSurface,
+      canSwipeLeft: () => {
+        if (!state.currentTournament) return false;
+        const maxRound = getMaxRoundNumber();
+        const activeRound = Number(state.viewingRound ?? maxRound) || 1;
+        return activeRound < maxRound;
+      },
+      canSwipeRight: () => {
+        if (!state.currentTournament) return false;
+        const activeRound =
+          Number(state.viewingRound ?? state.currentTournament.current_round) || 1;
+        return activeRound > 1;
+      },
       onSwipeLeft: () => nextRoundView(),
       onSwipeRight: () => prevRoundView()
     });
 
     // Spectator (mobile): swipe between Leaderboard ↔ Rounds tabs
     const shareWorkspace = $('share-tournament-workspace');
-    wireHorizontalSwipe(shareWorkspace, {
+    wireDragFollowSwipe(shareWorkspace, {
+      getSurface: () => shareWorkspace,
+      canSwipeLeft: () =>
+        state.shareViewerMode &&
+        !isTournamentDesktopLayout() &&
+        state.shareMobileTab === 'leaderboard',
+      canSwipeRight: () =>
+        state.shareViewerMode &&
+        !isTournamentDesktopLayout() &&
+        state.shareMobileTab === 'rounds',
       onSwipeLeft: () => {
-        if (isTournamentDesktopLayout()) return;
-        if (!state.shareViewerMode) return;
+        if (isTournamentDesktopLayout() || !state.shareViewerMode) return;
         if (state.shareMobileTab === 'leaderboard') switchShareTab('rounds');
       },
       onSwipeRight: () => {
-        if (isTournamentDesktopLayout()) return;
-        if (!state.shareViewerMode) return;
+        if (isTournamentDesktopLayout() || !state.shareViewerMode) return;
         if (state.shareMobileTab === 'rounds') switchShareTab('leaderboard');
       }
     });
