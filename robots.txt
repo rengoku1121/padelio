@@ -1,4 +1,8 @@
 User-agent: *
 Allow: /
+Disallow: /tests/
+Disallow: /scripts/
+Disallow: /e2e/
+Disallow: /sw.js
 
 Sitemap: https://padelio.id/sitemap.xml

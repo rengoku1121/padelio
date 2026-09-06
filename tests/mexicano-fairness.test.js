@@ -52,14 +52,26 @@ function scoreRoundDeterministic (round, seed) {
   });
 }
 
-function simulateMexicano (rosterNames, courts, totalRounds, seed = 1) {
+function mulberry32 (seed) {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function simulateMexicano (rosterNames, courts, totalRounds, seed = 1, opts = {}) {
   const tournament = buildTournament(rosterNames, courts);
   const playersFull = rosterNames.map((name) => ({ name, level: 3 }));
+  const random = typeof opts.random === 'function' ? opts.random : mulberry32(seed >>> 0);
   const rounds = [];
   for (let r = 1; r <= totalRounds; r++) {
     tournament.rounds = JSON.stringify(rounds);
     const matches = buildMexicanoMatches(
-      rosterNames, courts, rounds, r, tournament, playersFull
+      rosterNames, courts, rounds, r, tournament, playersFull, { random }
     );
     const round = { round: r, matches };
     scoreRoundDeterministic(round, seed + r * 100);
@@ -195,10 +207,13 @@ test('rotation — no partner pair at 4x (15p / 3c / 5r)', () => {
 
 test('buildBestMexicanoCandidateSchedule improves 15p/3c/5r vs single greedy pass', () => {
   const roster = Array.from({ length: 15 }, (_, i) => `P${i + 1}`);
-  const greedy = simulateMexicano(roster, 3, 5, 1);
+  const greedy = simulateMexicano(roster, 3, 5, 1, { random: mulberry32(1) });
   const greedyReport = buildMexicanoFairnessReport(roster, greedy, 3, 5);
 
-  const optimized = buildBestMexicanoCandidateSchedule(roster, 3, 5, { candidateCount: 50 });
+  const optimized = buildBestMexicanoCandidateSchedule(roster, 3, 5, {
+    candidateCount: 50,
+    baseSeed: 1
+  });
   const optReport = optimized.report;
 
   const rotationCost = (r) =>

@@ -3578,8 +3578,21 @@
     };
   };
 
+  const mulberry32 = (seed) => {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0;
+      a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
   /**
    * Known-horizon schedule optimizer (tests / debug only; not wired to live UI).
+   * Candidate 0 is the unrotated roster with `baseSeed` so the best schedule is
+   * never worse than a single seeded greedy pass.
    */
   const buildBestMexicanoCandidateSchedule = (roster, courts, roundCount, opts = {}) => {
     const names = Array.isArray(roster) ? roster.slice() : [];
@@ -3599,15 +3612,20 @@
     let bestQuality = null;
 
     for (let i = 0; i < candidateCount; i++) {
-      const seed = seedList ? (seedList[i] >>> 0) : ((baseSeed + i * 7919) >>> 0);
-      const rot = names.length ? seed % names.length : 0;
+      const seed = seedList
+        ? (seedList[i] >>> 0)
+        : i === 0
+          ? baseSeed
+          : ((baseSeed + i * 7919) >>> 0);
+      const rot = i === 0 || !names.length ? 0 : seed % names.length;
       const rotated = names.length
         ? [...names.slice(rot), ...names.slice(0, rot)]
         : [];
+      const random = mulberry32(seed);
       const allRounds = [];
       for (let r = 1; r <= roundsWanted; r++) {
         const matches = buildMexicanoMatches(
-          rotated, courtCount, allRounds, r, tournamentStub, null
+          rotated, courtCount, allRounds, r, tournamentStub, null, { random }
         );
         allRounds.push({ round: r, matches });
       }

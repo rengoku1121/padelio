@@ -96,7 +96,7 @@
 <body class="h-full padel-body overflow-auto pb-20 antialiased selection:bg-teal-500/20 selection:text-slate-900 dark:selection:text-white">
   <div id="app" class="w-full min-h-full min-h-0 flex flex-col">
     <!-- Home Page -->
-    <div id="page-home" class="page flex-1 flex flex-col p-6 max-w-lg mx-auto w-full">
+    <div id="page-home" class="page flex-1 flex flex-col p-6 max-w-2xl mx-auto w-full">
       <div class="text-center py-8 padel-shell">
         <div class="flex flex-col items-center">
           <div class="padel-hero-icon">
@@ -112,17 +112,15 @@
 
         <h1 id="main-title" class="padel-hero-title mb-3">Padelio</h1>
 
-        <!-- ADS container (slot only; no ad network scripts) -->
-        <!-- <div id="content-ad-wrap" class="hidden pb-6 min-h-[120px]"></div> -->
-
-        <!-- <p class="padel-lead max-w-md mx-auto mb-2">
+        <p class="padel-lead max-w-xl mx-auto mb-2">
           Create padel tournaments, rotate players fairly, track scores quickly,
           and keep every session organized from start to finish.
         </p>
 
-        <p class="padel-muted max-w-sm mx-auto mb-4">
+        <p class="padel-muted max-w-lg mx-auto mb-4">
           Built for clubs, friendly games, weekend sessions, and community events.
-        </p> -->
+          Free to use in the browser — no account required.
+        </p>
 
         <details class="padel-details group" aria-labelledby="whats-new-heading">
           <summary>
@@ -193,14 +191,14 @@
         </button>
       </div>
 
-      <!-- <a href="about.html" class="padel-btn-secondary mb-6">
+      <a href="about.html" class="padel-btn-secondary mb-6">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6h.01M11 10h1v8h-1"></path>
         </svg>
         Learn how Padelio works
-      </a> -->
+      </a>
 
-      <!-- <div class="grid grid-cols-2 gap-3 mb-6 padel-shell">
+      <div class="grid grid-cols-2 gap-3 mb-6 padel-shell">
         <div class="padel-stat-tile">
           <strong>Fast</strong>
           <span>Set up rounds and scores in minutes</span>
@@ -209,19 +207,20 @@
           <strong>Simple</strong>
           <span>Made for friendly clubs and social sessions</span>
         </div>
-      </div> -->
+      </div>
 
-      <!-- <div class="padel-card mb-6 padel-shell">
+      <div class="padel-card mb-6 padel-shell">
         <h2 class="padel-section-title">Free organizer guides</h2>
         <p class="padel-muted mb-3">
           Read practical guides for Americano format setup, score handling, mix planning,
-          Mexicano-style modes (including Mix Mexicano and Balanced Americano), and common mistakes that can reduce session quality.
-          Start from the index?each topic has its own page, including Mexicano &amp; advanced modes.
+          Mexicano-style modes (including Mix Mexicano and Balanced Americano), court-and-roster planning,
+          and common mistakes that can reduce session quality.
+          Each topic has its own page.
         </p>
-        <a href="guides.html" onclick="navigateTo('guides'); return false;" class="padel-link inline-flex items-center gap-2">
-          Open all guides <span aria-hidden="true">?</span>
+        <a href="guides.html" class="padel-link inline-flex items-center gap-2">
+          Open all guides <span aria-hidden="true">→</span>
         </a>
-      </div> -->
+      </div>
 
       <div class="flex-1">
         <div class="flex items-center justify-between mb-3 gap-3">
@@ -237,82 +236,100 @@
           <p class="text-slate-600 dark:text-slate-400 text-center py-8 text-sm">No tournaments yet</p>
         </div>
 
-        <!-- <div class="mt-8 padel-card">
+        <div class="mt-8 padel-card">
           <h3 class="text-lg font-extrabold mb-2">What is Padelio?</h3>
           <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed">
-            Padelio is a lightweight tournament helper built for Americano padel sessions.
-            It helps organizers create matches faster, rotate players more fairly, track scores clearly,
-            and keep the session flowing without manual spreadsheets or messy note-taking.
+            Padelio is a free, browser-based tournament helper built for social padel. It helps organizers
+            create matches faster, rotate players more fairly, track scores clearly, and keep a live leaderboard
+            without spreadsheets or paper slips. Tournaments stay on your device unless you share a spectator link.
           </p>
 
           <div class="mt-4 grid gap-3">
             <div class="bg-slate-50 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 backdrop-blur-sm">
               <div class="font-semibold">How scoring works</div>
               <p class="text-slate-600 dark:text-slate-300/80 text-sm leading-relaxed mt-1">
-                Each match uses a selected target score such as 16, 21, 24, or 32. When one team score is entered,
-                the other team score is completed automatically based on the target. This makes score input faster
-                and keeps every match format consistent.
+                Rally matches use a target such as 16, 21, 24, or 32. When one team score is entered,
+                the other score completes automatically. Mexicano-style sessions can also use best-of games
+                (tennis-style points). One operator can run the whole night from a phone.
               </p>
             </div>
 
             <div class="bg-slate-50 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 backdrop-blur-sm">
               <div class="font-semibold">Who this is for</div>
               <p class="text-slate-600 dark:text-slate-300/80 text-sm leading-relaxed mt-1">
-                Padelio is useful for club organizers, community hosts, social events, weekend padel sessions,
-                and friendly tournaments where players rotate often and want an easy live leaderboard.
+                Club organizers, community hosts, weekend socials, and friendly mix nights where players
+                rotate often and want a transparent ranking. It is not federation software and not for
+                official ranking events.
               </p>
             </div>
 
             <div class="bg-slate-50 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 backdrop-blur-sm">
-              <div class="font-semibold">Why people use it</div>
+              <div class="font-semibold">Formats you can run</div>
               <p class="text-slate-600 dark:text-slate-300/80 text-sm leading-relaxed mt-1">
-                Instead of managing paper notes or spreadsheets during play, organizers can keep tournament flow,
-                pairings, rounds, and points in one simple app that is easy to open on mobile.
+                Normal Americano, Mix Americano (balanced M/F), Mexicano, Mix Mexicano, Fixed pairs
+                (Americano or Mexicano), and Balanced Americano with power levels. Bench and bye lists
+                stay visible before each round.
               </p>
             </div>
           </div>
 
           <p class="text-slate-600 dark:text-slate-300 text-xs mt-4 leading-relaxed">
-            Tip: On the home screen, use <strong class="text-slate-700 dark:text-slate-200 font-semibold">Install app</strong> for one-tap access at the club, or read
-            <a
-              href="about.html"
-              class="text-teal-800 underline decoration-teal-600/55 hover:text-teal-950 dark:text-teal-200 dark:decoration-teal-400/50 hover:text-pink-900 dark:hover:text-pink-100 transition-colors"
-              onclick="navigateTo('about'); return false;"
-            >
-              the full installation guide
-            </a>
-            .
+            Tip: use <strong class="text-slate-700 dark:text-slate-200 font-semibold">Install app</strong> for one-tap courtside access, or read
+            <a href="about.html" class="text-teal-800 underline decoration-teal-600/55 hover:text-teal-950 dark:text-teal-200 dark:decoration-teal-400/50">the installation guide</a>.
           </p>
-        </div> -->
+        </div>
 
-        <!-- <div class="mt-8 space-y-4">
+        <div class="mt-8 space-y-4">
+          <div class="bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-cozy-sm backdrop-blur-sm">
+            <h3 class="text-lg font-extrabold mb-2">How a typical 90-minute club session runs</h3>
+            <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed mb-3">
+              Most Indonesian and regional clubs book courts in 60–120 minute blocks. A practical pattern with
+              two courts and twelve players is: ten minutes to check names and start the tournament, then four
+              to six short rally matches (target 21 or 24) with a visible bench each round. Padelio generates
+              the next draw after scores are in, so the host is not rewriting pairings on a whiteboard.
+            </p>
+            <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed">
+              If someone arrives late, replace them on the current court from the bench or add a guest — scores
+              stay with the team. If a court is lost or added mid-session, change the court count in the host
+              menu; the following round uses the new number. For a worked example of player-to-court math, see
+              <a href="guide-courts-players-and-time.html" class="underline text-teal-800 dark:text-teal-200">courts, players, and time</a>.
+            </p>
+          </div>
+
           <div class="bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-cozy-sm backdrop-blur-sm">
             <h3 class="text-lg font-extrabold mb-2">Why Americano works well for social padel</h3>
             <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed">
-              Americano is popular because it keeps players involved throughout the session. Instead of staying with one partner
-              for the whole event, players rotate across rounds, meet different opponents, and keep collecting points over time.
-              This makes the format feel more social, more dynamic, and often more enjoyable for club gatherings or weekend games.
+              Americano keeps players involved for the whole booking. Instead of one fixed partner, players
+              rotate, meet different opponents, and collect points over time. Elimination brackets leave people
+              sitting after an early loss; Americano and Mexicano keep the social night moving. Read
+              <a href="guide-americano-format.html" class="underline text-teal-800 dark:text-teal-200">Americano format explained</a>
+              and
+              <a href="guide-mexicano-and-modes.html" class="underline text-teal-800 dark:text-teal-200">Mexicano and other modes</a>.
             </p>
           </div>
 
           <div class="bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-cozy-sm backdrop-blur-sm">
             <h3 class="text-lg font-extrabold mb-2">Why organizers use Padelio</h3>
             <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed">
-              Running a padel session manually can become confusing when courts, rounds, and scores need to be updated quickly.
-              Organizers often rely on paper notes, chat messages, or spreadsheets, which can slow the event down. Padelio is meant
-              to simplify that process so the session can stay focused on play instead of administration.
+              Paper notes, WhatsApp lists, and spreadsheets break down when four courts are finishing at once.
+              Padelio keeps pairings, byes, scores, and the leaderboard in one phone-sized flow. Spectator
+              share links let players watch standings without editing the host device. Data stays local unless
+              you copy a share URL.
             </p>
           </div>
 
           <div class="bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-cozy-sm backdrop-blur-sm">
             <h3 class="text-lg font-extrabold mb-2">Best for clubs, communities, and friendly events</h3>
             <p class="text-slate-600 dark:text-slate-300/90 text-sm leading-relaxed">
-              Padelio is best suited for community padel groups, club sessions, social mixers, and friendly events where the goal
-              is to keep everyone playing and make score tracking easier. It is especially useful for sessions that want a live
-              leaderboard and a clearer round flow without using complex tournament software.
+              Use it for recurring club nights, mix socials, and weekend friendlies where the goal is court
+              time and a fair ranking — not a sanctioned draw. For a repeatable run-sheet, use the
+              <a href="guide-organizer-checklist.html" class="underline text-teal-800 dark:text-teal-200">organizer checklist</a>
+              and
+              <a href="guide-common-mistakes.html" class="underline text-teal-800 dark:text-teal-200">common mistakes</a>
+              pages.
             </p>
           </div>
-        </div> -->
+        </div>
       </div>
     </div>
 
@@ -467,7 +484,7 @@
       </button>
 
       <h2 class="text-2xl font-bold mb-2">Privacy Policy</h2>
-      <p class="text-slate-700 dark:text-slate-200 text-sm mb-6">Last updated: March 2026</p>
+      <p class="text-slate-700 dark:text-slate-200 text-sm mb-6">Last updated: September 2026</p>
 
       <div class="space-y-4">
         <div class="bg-slate-900/[0.03] dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/10 rounded-3xl p-5 shadow-cozy-sm backdrop-blur-sm">
@@ -515,7 +532,11 @@
             cookies, or anonymous usage signals according to their own policies.
           </p>
           <p class="text-slate-700 dark:text-slate-200 text-xs mt-3 leading-relaxed">
-            When advertising is shown, Google and its partners may use cookies or similar technologies to deliver and measure ads.
+            When advertising is shown, Google and its partners may use cookies or similar technologies to deliver and measure ads,
+            including personalized ads where allowed. See
+            <a href="https://policies.google.com/technologies/ads" class="underline" rel="noopener noreferrer" target="_blank">Google Advertising</a>
+            and
+            <a href="https://www.google.com/settings/ads" class="underline" rel="noopener noreferrer" target="_blank">Ads Settings</a>.
           </p>
         </div>
 
@@ -577,7 +598,7 @@
       </button>
 
       <h2 class="text-2xl font-bold mb-2">Terms of Service</h2>
-      <p class="text-slate-700 dark:text-slate-200 text-sm mb-6">Last updated: March 2026</p>
+      <p class="text-slate-700 dark:text-slate-200 text-sm mb-6">Last updated: September 2026</p>
 
       <div class="space-y-4">
 
