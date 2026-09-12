@@ -1057,6 +1057,12 @@
               </svg>
               Change courts
             </button>
+            <button type="button" id="menu-add-late-player-btn" onclick="document.getElementById('dropdown-menu').classList.add('hidden'); showLatePlayerPanel();" class="w-full px-4 py-3 text-left hover:bg-cyan-100/80 dark:hover:bg-cyan-500/15 transition-colors flex items-center gap-3 text-cyan-900 dark:text-cyan-200 border-b border-slate-200/80 dark:border-white/10">
+              <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87m-2 3.87a4 4 0 00-4-4m6-8a4 4 0 11-8 0m8 0a4 4 0 01-8 0m-6 8h6m-3-3v6" />
+              </svg>
+              Add late player
+            </button>
             <button type="button" onclick="document.getElementById('dropdown-menu').classList.add('hidden'); copySpectatorLinkForHost();" class="w-full px-4 py-3 text-left hover:bg-teal-100/80 dark:hover:bg-teal-500/15 transition-colors flex items-center gap-3 text-teal-800 dark:text-teal-200">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -1112,6 +1118,45 @@
           <div class="flex gap-2 justify-end">
             <button type="button" onclick="cancelCourtsChange()" class="px-4 py-2.5 rounded-2xl text-sm font-sans font-bold bg-slate-200/95 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 border border-slate-300/80 dark:border-white/10 transition-colors">Cancel</button>
             <button type="button" onclick="applyCourtsChange()" class="px-4 py-2.5 rounded-2xl text-sm font-sans font-bold bg-lime-600 text-white hover:bg-lime-700 dark:bg-lime-600 dark:hover:bg-lime-500 border border-lime-700/30 dark:border-lime-400/20 transition-colors shadow-sm">Apply</button>
+          </div>
+        </div>
+      </div>
+      <div id="late-player-panel" class="relative z-0 hidden bg-cyan-50/95 dark:bg-cyan-950/45 border-b border-cyan-200/80 dark:border-cyan-800/60 p-4">
+        <div class="flex flex-col gap-3 max-w-lg mx-auto">
+          <div>
+            <p class="text-sm font-semibold font-sans text-slate-900 dark:text-cyan-50">Add late player</p>
+            <p class="text-xs text-cyan-900/85 dark:text-cyan-200/90 mt-1">Current round stays unchanged. New player joins roster for next generated rounds.</p>
+          </div>
+          <input
+            type="text"
+            id="late-player-name"
+            placeholder="Player name"
+            class="w-full rounded-2xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-slate-800/95 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
+            autocomplete="off"
+          />
+          <div id="late-player-gender-row" class="hidden">
+            <label for="late-player-gender" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Gender (required for mix mode)</label>
+            <select
+              id="late-player-gender"
+              class="w-full rounded-2xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-slate-800/95 px-4 py-2.5 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
+            >
+              <option value="M">Male</option>
+              <option value="F">Female</option>
+            </select>
+          </div>
+          <div id="late-player-fixed-row" class="hidden">
+            <label for="late-player-pair-name" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Fixed pairs mode requires a partner</label>
+            <input
+              type="text"
+              id="late-player-pair-name"
+              placeholder="Pair partner name"
+              class="w-full rounded-2xl border border-slate-200/90 dark:border-white/15 bg-white/95 dark:bg-slate-800/95 px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/35"
+              autocomplete="off"
+            />
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button type="button" onclick="cancelLatePlayerAdd()" class="px-4 py-2.5 rounded-2xl text-sm font-sans font-bold bg-slate-200/95 text-slate-900 hover:bg-slate-300 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 border border-slate-300/80 dark:border-white/10 transition-colors">Cancel</button>
+            <button type="button" onclick="applyLatePlayerAdd()" class="px-4 py-2.5 rounded-2xl text-sm font-sans font-bold bg-cyan-600 text-white hover:bg-cyan-700 dark:bg-cyan-600 dark:hover:bg-cyan-500 border border-cyan-700/30 dark:border-cyan-400/20 transition-colors shadow-sm">Add</button>
           </div>
         </div>
       </div>

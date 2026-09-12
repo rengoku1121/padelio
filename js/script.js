@@ -2239,6 +2239,7 @@
 
     if (page === 'rounds' && state.currentTournament) {
       syncHostCourtsMenuVisibility();
+      syncHostLatePlayerMenuVisibility();
       requestAnimationFrame(() => {
         refreshHostTournamentDesktopUi();
         ensureViewingRoundValid();
@@ -4298,6 +4299,7 @@
                   : '';
     if (title) title.textContent = tm + modeSuffix;
     syncHostCourtsMenuVisibility();
+    syncHostLatePlayerMenuVisibility();
     updateRoundIndicator();
 
     await generateRound();
@@ -4325,9 +4327,14 @@
   });
 
   let courtsChangeDraft = 1;
+  let latePlayerGenderDraft = 'M';
 
   const hideCourtsChangePanel = () => {
     $('courts-change-panel')?.classList.add('hidden');
+  };
+
+  const hideLatePlayerPanel = () => {
+    $('late-player-panel')?.classList.add('hidden');
   };
 
   const syncHostCourtsMenuVisibility = () => {
@@ -4335,6 +4342,120 @@
     if (!btn) return;
     const hide = state.shareViewerMode || !state.currentTournament;
     btn.classList.toggle('hidden', hide);
+  };
+
+  const syncHostLatePlayerMenuVisibility = () => {
+    const btn = $('menu-add-late-player-btn');
+    if (!btn) return;
+    const hide = state.shareViewerMode || !state.currentTournament;
+    btn.classList.toggle('hidden', hide);
+  };
+
+  const refreshAfterRosterAdd = () => {
+    if (!state.currentTournament) return;
+    renderTournamentList();
+    updateRoundIndicator();
+    if (!$('page-rounds')?.classList.contains('hidden')) {
+      ensureViewingRoundValid();
+      renderSpecificRound(state.viewingRound ?? state.currentTournament.current_round);
+      updateRoundArrowState();
+    }
+    maybeRefreshDesktopLeaderboard();
+  };
+
+  const refreshLatePlayerPanelUi = () => {
+    const mode = state.currentTournament?.mode || 'normal';
+    const isMix = isMixLikeMode(mode);
+    const isFixed = isFixedPairRosterMode(mode);
+    $('late-player-gender-row')?.classList.toggle('hidden', !isMix);
+    $('late-player-fixed-row')?.classList.toggle('hidden', !isFixed);
+    const genderEl = $('late-player-gender');
+    if (genderEl) genderEl.value = latePlayerGenderDraft;
+  };
+
+  const showLatePlayerPanel = () => {
+    if (state.shareViewerMode || !state.currentTournament) return;
+    syncCurrentTournament();
+    $('dropdown-menu')?.classList.add('hidden');
+    $('delete-confirm')?.classList.add('hidden');
+    hideCourtsChangePanel();
+    const nameEl = $('late-player-name');
+    const pairEl = $('late-player-pair-name');
+    if (nameEl) nameEl.value = '';
+    if (pairEl) pairEl.value = '';
+    latePlayerGenderDraft = 'M';
+    refreshLatePlayerPanelUi();
+    $('late-player-panel')?.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      nameEl?.focus({ preventScroll: true });
+    });
+  };
+
+  const cancelLatePlayerAdd = () => {
+    hideLatePlayerPanel();
+  };
+
+  const applyLatePlayerAdd = async () => {
+    if (state.shareViewerMode || !state.currentTournament) return false;
+    syncCurrentTournament();
+    const t = state.currentTournament;
+    if (!t) return false;
+
+    const mode = t.mode || 'normal';
+    const isMix = isMixLikeMode(mode);
+    const isFixed = isFixedPairRosterMode(mode);
+    const nameRaw = $('late-player-name')?.value ?? '';
+    const pairRaw = $('late-player-pair-name')?.value ?? '';
+    const gender = isMix ? ($('late-player-gender')?.value || latePlayerGenderDraft) : null;
+
+    const first = formatPlayerDisplayName(nameRaw);
+    if (!first) {
+      toast('Name cannot be empty');
+      return false;
+    }
+    const second = isFixed ? formatPlayerDisplayName(pairRaw) : '';
+    if (isFixed && !second) {
+      toast('Fixed pairs mode needs two names (one pair).');
+      return false;
+    }
+    if (isFixed && playerNamesMatch(first, second)) {
+      toast('Pair names must be different.');
+      return false;
+    }
+
+    const players = getPlayersFull();
+    if (players.some((p) => playerNamesMatch(p.name, first))) {
+      toast('That name is already in the list.');
+      return false;
+    }
+    if (isFixed && players.some((p) => playerNamesMatch(p.name, second))) {
+      toast('Pair partner is already in the list.');
+      return false;
+    }
+    if (isMix && gender !== 'M' && gender !== 'F') {
+      toast('Select gender for mix mode.');
+      return false;
+    }
+
+    pushUndoSnapshot(isFixed ? 'Add pair' : 'Add player');
+    players.push({ name: first, gender: isMix ? gender : null, level: DEFAULT_PLAYER_LEVEL });
+    if (isFixed) players.push({ name: second, gender: null, level: DEFAULT_PLAYER_LEVEL });
+    t.players = JSON.stringify(players);
+    invalidateTournamentScheduleCaches(t);
+
+    try {
+      await saveCurrentTournament();
+    } catch {
+      toast('Saved locally; sync may retry');
+    }
+    hideLatePlayerPanel();
+    refreshAfterRosterAdd();
+    if (isFixed) {
+      toastWithUndo(`Added pair ${first} + ${second}. Next rounds can use the new pair.`);
+    } else {
+      toastWithUndo(`Added ${first}. Next rounds can include this player.`);
+    }
+    return true;
   };
 
   const refreshCourtsChangePanelUi = () => {
@@ -4381,6 +4502,7 @@
     syncCurrentTournament();
     $('dropdown-menu')?.classList.add('hidden');
     $('delete-confirm')?.classList.add('hidden');
+    hideLatePlayerPanel();
     courtsChangeDraft = Number(state.currentTournament.courts) || 1;
     refreshCourtsChangePanelUi();
     $('courts-change-panel')?.classList.remove('hidden');
@@ -4625,6 +4747,7 @@
   const confirmDelete = () => {
     $('dropdown-menu')?.classList.add('hidden');
     hideCourtsChangePanel();
+    hideLatePlayerPanel();
     $('delete-confirm')?.classList.remove('hidden');
   };
 
@@ -6657,6 +6780,9 @@
   window.applyCourtsChange = applyCourtsChange;
   window.stepCourtsChangeDraft = stepCourtsChangeDraft;
   window.changeTournamentCourts = changeTournamentCourts;
+  window.showLatePlayerPanel = showLatePlayerPanel;
+  window.cancelLatePlayerAdd = cancelLatePlayerAdd;
+  window.applyLatePlayerAdd = applyLatePlayerAdd;
 
   window.regenerateCurrentRound = regenerateCurrentRound;
   window.undoLastChange = undoLastChange;
