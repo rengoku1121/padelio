@@ -4312,17 +4312,60 @@
   };
 
   /* ---------- Menu ---------- */
-  const toggleMenu = () => {
+  let menuCloseTimer = null;
+  const isMenuOpen = () => $('dropdown-menu')?.classList.contains('menu-open');
+
+  const closeMenu = () => {
     const menu = $('dropdown-menu');
-    if (!menu) return;
-    menu.classList.toggle('hidden');
+    const backdrop = $('menu-backdrop');
+    const toggleBtn = $('menu-toggle-btn');
+    if (!menu || !backdrop) return;
+    if (menuCloseTimer) {
+      clearTimeout(menuCloseTimer);
+      menuCloseTimer = null;
+    }
+    menu.classList.remove('menu-open');
+    backdrop.classList.remove('menu-open');
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    menuCloseTimer = setTimeout(() => {
+      menu.classList.add('hidden');
+      backdrop.classList.add('hidden');
+      try {
+        document.body.style.overflow = '';
+      } catch {}
+      menuCloseTimer = null;
+    }, 260);
   };
 
-  document.addEventListener('click', (e) => {
+  const openMenu = () => {
     const menu = $('dropdown-menu');
-    if (!menu) return;
-    if (!e.target.closest('#dropdown-menu') && !e.target.closest('[onclick="toggleMenu()"]')) {
-      menu.classList.add('hidden');
+    const backdrop = $('menu-backdrop');
+    const toggleBtn = $('menu-toggle-btn');
+    if (!menu || !backdrop) return;
+    if (menuCloseTimer) {
+      clearTimeout(menuCloseTimer);
+      menuCloseTimer = null;
+    }
+    menu.classList.remove('hidden');
+    backdrop.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      menu.classList.add('menu-open');
+      backdrop.classList.add('menu-open');
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+      try {
+        document.body.style.overflow = 'hidden';
+      } catch {}
+    });
+  };
+
+  const toggleMenu = () => {
+    if (isMenuOpen()) closeMenu();
+    else openMenu();
+  };
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isMenuOpen()) {
+      closeMenu();
     }
   });
 
@@ -4376,7 +4419,7 @@
   const showLatePlayerPanel = () => {
     if (state.shareViewerMode || !state.currentTournament) return;
     syncCurrentTournament();
-    $('dropdown-menu')?.classList.add('hidden');
+    closeMenu();
     $('delete-confirm')?.classList.add('hidden');
     hideCourtsChangePanel();
     const nameEl = $('late-player-name');
@@ -4500,7 +4543,7 @@
   const showCourtsChangePanel = () => {
     if (state.shareViewerMode || !state.currentTournament) return;
     syncCurrentTournament();
-    $('dropdown-menu')?.classList.add('hidden');
+    closeMenu();
     $('delete-confirm')?.classList.add('hidden');
     hideLatePlayerPanel();
     courtsChangeDraft = Number(state.currentTournament.courts) || 1;
@@ -4745,7 +4788,7 @@
   };
 
   const confirmDelete = () => {
-    $('dropdown-menu')?.classList.add('hidden');
+    closeMenu();
     hideCourtsChangePanel();
     hideLatePlayerPanel();
     $('delete-confirm')?.classList.remove('hidden');
@@ -6113,8 +6156,7 @@
   };
 
   const showSpectatorQrModal = async () => {
-    const menu = $('dropdown-menu');
-    if (menu) menu.classList.add('hidden');
+    closeMenu();
 
     syncCurrentTournament();
     if (!state.currentTournament) return;
@@ -6483,7 +6525,7 @@
     if (!state.currentTournament) return;
 
     state.lastRoundsView = (state.viewingRound ?? state.currentTournament.current_round);
-    $('dropdown-menu')?.classList.add('hidden');
+    closeMenu();
 
     // ensure latest stored object
     const fresh = state.tournaments.find((t) => t.__backendId === state.currentTournament.__backendId);
@@ -6764,6 +6806,7 @@
   window.nextRound = nextRound;
 
   window.toggleMenu = toggleMenu;
+  window.closeMenu = closeMenu;
   window.installApp = installApp;
   window.clearAppCacheOnly = clearAppCacheOnly;
   window.clearAppCacheFromUpdateModal = clearAppCacheFromUpdateModal;
