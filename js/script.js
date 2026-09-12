@@ -4327,6 +4327,7 @@
     menu.classList.remove('menu-open');
     backdrop.classList.remove('menu-open');
     if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    document.body.classList.remove('menu-drawer-open');
     menuCloseTimer = setTimeout(() => {
       menu.classList.add('hidden');
       backdrop.classList.add('hidden');
@@ -4352,6 +4353,7 @@
       menu.classList.add('menu-open');
       backdrop.classList.add('menu-open');
       if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('menu-drawer-open');
       try {
         document.body.style.overflow = 'hidden';
       } catch {}
@@ -4367,6 +4369,18 @@
     if (e.key === 'Escape' && isMenuOpen()) {
       closeMenu();
     }
+  });
+
+  document.addEventListener('pointerdown', (e) => {
+    if (!isMenuOpen()) return;
+    const target = e.target;
+    if (
+      target?.closest &&
+      (target.closest('#dropdown-menu') || target.closest('#menu-toggle-btn'))
+    ) {
+      return;
+    }
+    closeMenu();
   });
 
   let courtsChangeDraft = 1;

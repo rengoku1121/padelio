@@ -1047,6 +1047,19 @@
           </button>
           <div id="menu-backdrop" class="hidden host-menu-backdrop" onclick="closeMenu()"></div>
           <div id="dropdown-menu" class="hidden host-menu-drawer" role="menu" aria-label="Tournament menu">
+            <div class="host-menu-drawer__head">
+              <p class="host-menu-drawer__title">Tournament menu</p>
+              <button
+                type="button"
+                onclick="closeMenu()"
+                class="host-menu-drawer__close"
+                aria-label="Close menu"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
             <button type="button" onclick="closeMenu(); padelioToggleTheme();" class="w-full px-4 py-3 text-left hover:bg-slate-100 dark:hover:bg-white/10 transition-colors flex items-center gap-3 text-slate-800 dark:text-slate-100 border-b border-slate-200/80 dark:border-white/10">
               <svg class="w-5 h-5 text-amber-500 dark:text-amber-200 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
