@@ -7122,32 +7122,24 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
+        // Service worker disabled for stability on production:
+        // stale/broken SWs can block initial HTML/CSS fetch and cause blank loads.
         const stale = await navigator.serviceWorker.getRegistrations();
         await Promise.all(
           stale.map((r) => {
             const url =
               r.active?.scriptURL || r.waiting?.scriptURL || r.installing?.scriptURL || '';
-            if (/\/sw\.js(?:\?|$)/i.test(url) || /5gvci\.com/i.test(url)) {
+            if (/\/sw\.js(?:\?|$)/i.test(url) || /\/service-worker\.js(?:\?|$)/i.test(url) || /5gvci\.com/i.test(url)) {
               return r.unregister();
             }
             return Promise.resolve();
           })
         );
 
-        const reg = await navigator.serviceWorker.register('/service-worker.js?v=1.6.15');
-
-        reg.addEventListener('updatefound', () => {
-          const sw = reg.installing;
-          if (!sw) return;
-
-          sw.addEventListener('statechange', () => {
-            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-              window.location.reload();
-            }
-          });
-        });
-
-        reg.update();
+        const keys = await caches.keys();
+        await Promise.all(
+          keys.map((k) => (/^padel-cache-/i.test(k) ? caches.delete(k) : Promise.resolve()))
+        );
       } catch (err) {
         console.error('SW failed', err);
       }

@@ -4,5 +4,6 @@ Disallow: /tests/
 Disallow: /scripts/
 Disallow: /e2e/
 Disallow: /sw.js
+Disallow: /service-worker.js
 
 Sitemap: https://padelio.id/sitemap.xml
