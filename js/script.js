@@ -4040,6 +4040,18 @@
   const SWIPE_MIN_DX = 52;
   const SWIPE_AXIS_LOCK_PX = 10;
   const SWIPE_DRAG_MAX = 120;
+  const MENU_EDGE_ZONE_PX = 24;
+  const MENU_SWIPE_OPEN_PX = 56;
+  const MENU_SWIPE_CLOSE_PX = 56;
+  const MODAL_SWIPE_CLOSE_PX = 90;
+  const PAGE_SWIPE_BACK_EDGE_PX = 20;
+  const PAGE_SWIPE_BACK_MIN_PX = 72;
+
+  const hapticTap = (ms = 8) => {
+    try {
+      if (navigator.vibrate) navigator.vibrate(ms);
+    } catch {}
+  };
 
   const isSwipeBlockedTarget = (target) => {
     if (!target || typeof target.closest !== 'function') return true;
@@ -4175,11 +4187,13 @@
 
         if (commit && useDx < 0 && canSwipeLeft()) {
           if (surface) resetRoundSwipeTransform(surface);
+          hapticTap(8);
           opts.onSwipeLeft?.();
           return;
         }
         if (commit && useDx > 0 && canSwipeRight()) {
           if (surface) resetRoundSwipeTransform(surface);
+          hapticTap(8);
           opts.onSwipeRight?.();
           return;
         }
@@ -4251,6 +4265,15 @@
         if (state.shareMobileTab === 'rounds') switchShareTab('leaderboard');
       }
     });
+
+    // App-like gestures: edge-swipe menu, swipe-back nav, and swipe dismiss.
+    wireMenuEdgeSwipe();
+    wireSwipeDownToCloseModal('modal-spectator-qr', closeSpectatorQrModal);
+    wireSwipeDownToCloseModal('modal-player-substitute', closeSubstitutePlayerModal);
+    wireSwipeDownToCloseModal('update-cache-reminder-modal', hideUpdateReminderModal);
+    wireSwipeDownToHidePanel('late-player-panel', hideLatePlayerPanel);
+    wireSwipeDownToHidePanel('courts-change-panel', hideCourtsChangePanel);
+    wirePageSwipeBack();
   };
 
   const nextRound = async () => {
@@ -4331,6 +4354,8 @@
     menuCloseTimer = setTimeout(() => {
       menu.classList.add('hidden');
       backdrop.classList.add('hidden');
+      menu.style.transform = '';
+      menu.style.transition = '';
       try {
         document.body.style.overflow = '';
       } catch {}
@@ -4347,6 +4372,8 @@
       clearTimeout(menuCloseTimer);
       menuCloseTimer = null;
     }
+    menu.style.transform = '';
+    menu.style.transition = '';
     menu.classList.remove('hidden');
     backdrop.classList.remove('hidden');
     requestAnimationFrame(() => {
@@ -4382,6 +4409,431 @@
     }
     closeMenu();
   });
+
+  const wireMenuEdgeSwipe = () => {
+    if (document.body.dataset.menuSwipeWired === '1') return;
+    document.body.dataset.menuSwipeWired = '1';
+
+    let tracking = false;
+    let mode = null; // "open" | "close"
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let lastDx = 0;
+
+    const reset = () => {
+      tracking = false;
+      mode = null;
+      axis = null;
+      startX = 0;
+      startY = 0;
+      lastDx = 0;
+    };
+
+    const getDrawer = () => $('dropdown-menu');
+    const roundsVisible = () => !$('page-rounds')?.classList.contains('hidden');
+
+    document.addEventListener(
+      'touchstart',
+      (e) => {
+        if (e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const target = e.target;
+        const drawer = getDrawer();
+        if (!drawer || !roundsVisible()) return;
+
+        startX = t.clientX;
+        startY = t.clientY;
+        axis = null;
+        lastDx = 0;
+
+        if (isMenuOpen()) {
+          if (!target?.closest || !target.closest('#dropdown-menu')) return;
+          if (isSwipeBlockedTarget(target)) return;
+          mode = 'close';
+          tracking = true;
+          drawer.style.transition = 'none';
+          return;
+        }
+
+        if (target?.closest && target.closest('#menu-toggle-btn')) return;
+        if (startX < window.innerWidth - MENU_EDGE_ZONE_PX) return;
+        mode = 'open';
+        tracking = true;
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!tracking || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
+          axis = Math.abs(dx) > Math.abs(dy) * 1.1 ? 'x' : 'y';
+        }
+        if (axis !== 'x') return;
+
+        if (mode === 'close') {
+          if (dx <= 0) return;
+          const drawer = getDrawer();
+          if (!drawer) return;
+          const drag = Math.min(dx, 180);
+          lastDx = drag;
+          drawer.style.transform = `translate3d(${drag}px,0,0)`;
+        } else if (mode === 'open') {
+          lastDx = dx;
+        }
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchend',
+      (e) => {
+        if (!tracking) return;
+        const t = e.changedTouches?.[0];
+        const endDx = t ? t.clientX - startX : lastDx;
+        const endDy = t ? t.clientY - startY : 0;
+        const horizontal = axis === 'x' || Math.abs(endDx) > Math.abs(endDy) * 1.1;
+
+        if (mode === 'open') {
+          if (horizontal && endDx <= -MENU_SWIPE_OPEN_PX) {
+            hapticTap(9);
+            openMenu();
+          }
+          reset();
+          return;
+        }
+
+        if (mode === 'close') {
+          const drawer = getDrawer();
+          if (drawer) {
+            drawer.style.transition = 'transform 180ms ease-out';
+          }
+          if (horizontal && endDx >= MENU_SWIPE_CLOSE_PX) {
+            if (drawer) drawer.style.transform = '';
+            hapticTap(9);
+            closeMenu();
+          } else if (drawer) {
+            drawer.style.transform = 'translate3d(0,0,0)';
+            window.setTimeout(() => {
+              drawer.style.transform = '';
+              drawer.style.transition = '';
+            }, 190);
+          }
+          reset();
+        }
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchcancel',
+      () => {
+        const drawer = getDrawer();
+        if (drawer) {
+          drawer.style.transform = '';
+          drawer.style.transition = '';
+        }
+        reset();
+      },
+      { passive: true }
+    );
+  };
+
+  const wireSwipeDownToCloseModal = (modalId, onClose) => {
+    const modal = $(modalId);
+    if (!modal || modal.dataset.swipeCloseWired === '1') return;
+    modal.dataset.swipeCloseWired = '1';
+    const panel = modal.firstElementChild;
+    if (!panel) return;
+
+    let tracking = false;
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let lastDy = 0;
+
+    const reset = () => {
+      tracking = false;
+      axis = null;
+      startX = 0;
+      startY = 0;
+      lastDy = 0;
+      panel.style.transform = '';
+      panel.style.opacity = '';
+      panel.style.transition = '';
+    };
+
+    modal.addEventListener(
+      'touchstart',
+      (e) => {
+        if (modal.classList.contains('hidden')) return;
+        if (e.touches.length !== 1) return;
+        const target = e.target;
+        if (!panel.contains(target)) return;
+        if (target?.closest && target.closest('input, textarea, select')) return;
+        if (panel.scrollTop > 0) return;
+        const t = e.touches[0];
+        tracking = true;
+        axis = null;
+        startX = t.clientX;
+        startY = t.clientY;
+        lastDy = 0;
+      },
+      { passive: true }
+    );
+
+    modal.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!tracking || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
+          axis = Math.abs(dy) > Math.abs(dx) * 1.1 ? 'y' : 'x';
+          if (axis === 'x') {
+            reset();
+            return;
+          }
+        }
+        if (axis !== 'y' || dy <= 0) return;
+        lastDy = Math.min(dy, 180);
+        panel.style.transition = 'none';
+        panel.style.transform = `translate3d(0,${lastDy}px,0)`;
+        panel.style.opacity = String(Math.max(0.72, 1 - lastDy / 280));
+      },
+      { passive: true }
+    );
+
+    modal.addEventListener(
+      'touchend',
+      (e) => {
+        if (!tracking) return;
+        const t = e.changedTouches?.[0];
+        const dy = t ? t.clientY - startY : lastDy;
+        const dx = t ? t.clientX - startX : 0;
+        const vertical = axis === 'y' || Math.abs(dy) > Math.abs(dx) * 1.1;
+        if (vertical && dy >= MODAL_SWIPE_CLOSE_PX) {
+          reset();
+          onClose?.();
+          return;
+        }
+        panel.style.transition = 'transform 180ms ease-out, opacity 180ms ease-out';
+        panel.style.transform = 'translate3d(0,0,0)';
+        panel.style.opacity = '1';
+        window.setTimeout(() => reset(), 190);
+      },
+      { passive: true }
+    );
+
+    modal.addEventListener('touchcancel', reset, { passive: true });
+  };
+
+  const wireSwipeDownToHidePanel = (panelId, onHide) => {
+    const panel = $(panelId);
+    if (!panel || panel.dataset.swipeCloseWired === '1') return;
+    panel.dataset.swipeCloseWired = '1';
+
+    let tracking = false;
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let lastDy = 0;
+
+    const reset = () => {
+      tracking = false;
+      axis = null;
+      startX = 0;
+      startY = 0;
+      lastDy = 0;
+      panel.style.transform = '';
+      panel.style.opacity = '';
+      panel.style.transition = '';
+    };
+
+    panel.addEventListener(
+      'touchstart',
+      (e) => {
+        if (panel.classList.contains('hidden')) return;
+        if (e.touches.length !== 1) return;
+        const target = e.target;
+        if (target?.closest && target.closest('input, textarea, select')) return;
+        const t = e.touches[0];
+        tracking = true;
+        axis = null;
+        startX = t.clientX;
+        startY = t.clientY;
+        lastDy = 0;
+      },
+      { passive: true }
+    );
+
+    panel.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!tracking || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
+          axis = Math.abs(dy) > Math.abs(dx) * 1.1 ? 'y' : 'x';
+          if (axis === 'x') {
+            reset();
+            return;
+          }
+        }
+        if (axis !== 'y' || dy <= 0) return;
+        lastDy = Math.min(dy, 120);
+        panel.style.transition = 'none';
+        panel.style.transform = `translate3d(0,${lastDy}px,0)`;
+        panel.style.opacity = String(Math.max(0.76, 1 - lastDy / 260));
+      },
+      { passive: true }
+    );
+
+    panel.addEventListener(
+      'touchend',
+      (e) => {
+        if (!tracking) return;
+        const t = e.changedTouches?.[0];
+        const dy = t ? t.clientY - startY : lastDy;
+        const dx = t ? t.clientX - startX : 0;
+        const vertical = axis === 'y' || Math.abs(dy) > Math.abs(dx) * 1.1;
+        if (vertical && dy >= 64) {
+          hapticTap(8);
+          reset();
+          onHide?.();
+          return;
+        }
+        panel.style.transition = 'transform 170ms ease-out, opacity 170ms ease-out';
+        panel.style.transform = 'translate3d(0,0,0)';
+        panel.style.opacity = '1';
+        window.setTimeout(() => reset(), 180);
+      },
+      { passive: true }
+    );
+
+    panel.addEventListener('touchcancel', reset, { passive: true });
+  };
+
+  const wirePageSwipeBack = () => {
+    if (document.body.dataset.pageSwipeBackWired === '1') return;
+    document.body.dataset.pageSwipeBackWired = '1';
+
+    let tracking = false;
+    let axis = null;
+    let startX = 0;
+    let startY = 0;
+    let pageAtStart = null;
+    let lastDx = 0;
+
+    const getVisiblePage = () => {
+      const pageEl = document.querySelector('.page:not(.hidden)');
+      if (!pageEl?.id) return null;
+      return pageEl.id.startsWith('page-') ? pageEl.id.slice(5) : null;
+    };
+
+    const hasBlockingModal = () => {
+      const update = $('update-cache-reminder-modal');
+      const qr = $('modal-spectator-qr');
+      const sub = $('modal-player-substitute');
+      return (
+        (!!update && !update.classList.contains('hidden')) ||
+        (!!qr && !qr.classList.contains('hidden')) ||
+        (!!sub && !sub.classList.contains('hidden'))
+      );
+    };
+
+    const resolveBackAction = (page) => {
+      if (!page) return null;
+      if (page === 'leaderboard') return () => backToRounds();
+      const map = {
+        'new-players': () => navigateTo('new-points'),
+        'new-points': () => navigateTo('new-courts'),
+        'new-courts': () => navigateTo('new-title'),
+        'new-title': () => navigateTo('home'),
+        'new-mode': () => navigateTo('home'),
+        about: () => navigateTo('home'),
+        privacy: () => navigateTo('home'),
+        terms: () => navigateTo('home'),
+        contact: () => navigateTo('home'),
+        guides: () => navigateTo('home')
+      };
+      return map[page] || null;
+    };
+
+    document.addEventListener(
+      'touchstart',
+      (e) => {
+        if (window.innerWidth >= 1024) return;
+        if (e.touches.length !== 1) return;
+        if (isMenuOpen()) return;
+        if (hasBlockingModal()) return;
+        if (isSwipeBlockedTarget(e.target)) return;
+        const t = e.touches[0];
+        if (t.clientX > PAGE_SWIPE_BACK_EDGE_PX) return;
+        pageAtStart = getVisiblePage();
+        if (!resolveBackAction(pageAtStart)) return;
+        tracking = true;
+        axis = null;
+        startX = t.clientX;
+        startY = t.clientY;
+        lastDx = 0;
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchmove',
+      (e) => {
+        if (!tracking || e.touches.length !== 1) return;
+        const t = e.touches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (axis == null && (Math.abs(dx) > SWIPE_AXIS_LOCK_PX || Math.abs(dy) > SWIPE_AXIS_LOCK_PX)) {
+          axis = Math.abs(dx) > Math.abs(dy) * 1.15 ? 'x' : 'y';
+          if (axis !== 'x') tracking = false;
+        }
+        if (!tracking || axis !== 'x') return;
+        lastDx = dx;
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchend',
+      (e) => {
+        if (!tracking) return;
+        const t = e.changedTouches?.[0];
+        const endDx = t ? t.clientX - startX : lastDx;
+        const endDy = t ? t.clientY - startY : 0;
+        const horizontal = axis === 'x' || Math.abs(endDx) > Math.abs(endDy) * 1.15;
+        const back = resolveBackAction(pageAtStart);
+        tracking = false;
+        axis = null;
+        pageAtStart = null;
+        if (!back || !horizontal || endDx < PAGE_SWIPE_BACK_MIN_PX) return;
+        hapticTap(10);
+        back();
+      },
+      { passive: true }
+    );
+
+    document.addEventListener(
+      'touchcancel',
+      () => {
+        tracking = false;
+        axis = null;
+        pageAtStart = null;
+      },
+      { passive: true }
+    );
+  };
 
   let courtsChangeDraft = 1;
   let latePlayerGenderDraft = 'M';
