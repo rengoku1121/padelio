@@ -1432,7 +1432,22 @@
   };
 
   /** Locked in js/version.js — do not change here. */
-  const APP_VERSION = typeof window.PADELIO_VERSION === 'string' ? window.PADELIO_VERSION : '1.6.15';
+  const APP_VERSION = typeof window.PADELIO_VERSION === 'string' ? window.PADELIO_VERSION : '1.6.16';
+  const UPDATE_REMINDER_ACK_KEY = `padelio-update-reminder-ack:${APP_VERSION}`;
+
+  const hasAckedUpdateReminder = () => {
+    try {
+      return localStorage.getItem(UPDATE_REMINDER_ACK_KEY) === '1';
+    } catch {
+      return false;
+    }
+  };
+
+  const ackUpdateReminder = () => {
+    try {
+      localStorage.setItem(UPDATE_REMINDER_ACK_KEY, '1');
+    } catch {}
+  };
 
   const defaultConfig = { app_title: 'Padelio' };
 
@@ -7057,7 +7072,7 @@
           </li>
         </ul>
         <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-          <button type="button" data-testid="update-tip-dismiss" onclick="hideUpdateReminderModal()"
+          <button type="button" data-testid="update-tip-dismiss" onclick="ackUpdateReminderAndHide()"
             class="order-2 sm:order-1 w-full sm:w-auto rounded-2xl border border-slate-200/90 dark:border-white/15 bg-slate-900/8 dark:bg-white/5 px-4 py-3 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-200/90 dark:hover:bg-white/10">
             Mengerti, lanjut
           </button>
@@ -7090,17 +7105,24 @@
     } catch {}
   };
 
-  /** Shown on every full page load (not share links); dismiss only for this visit. */
+  const ackUpdateReminderAndHide = () => {
+    ackUpdateReminder();
+    hideUpdateReminderModal();
+  };
+
+  /** Shown once per app version on full page load (not share links). */
   const maybeShowUpdateReminderOnLoad = () => {
     if (state.shareViewerMode) return;
+    if (hasAckedUpdateReminder()) return;
     ensureUpdateCacheReminderModal();
     setTimeout(() => {
-      if (state.shareViewerMode) return;
+      if (state.shareViewerMode || hasAckedUpdateReminder()) return;
       showUpdateReminderModal();
     }, 400);
   };
 
   const clearAppCacheFromUpdateModal = async () => {
+    ackUpdateReminder();
     await clearAppCacheOnly({ skipConfirm: true });
   };
 
@@ -7270,6 +7292,7 @@
   window.clearAppCacheFromUpdateModal = clearAppCacheFromUpdateModal;
   window.showUpdateReminderModal = showUpdateReminderModal;
   window.hideUpdateReminderModal = hideUpdateReminderModal;
+  window.ackUpdateReminderAndHide = ackUpdateReminderAndHide;
   window.clearAllTournamentData = clearAllTournamentData;
   window.confirmDelete = confirmDelete;
   window.cancelDelete = cancelDelete;
